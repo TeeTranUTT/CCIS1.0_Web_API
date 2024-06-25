@@ -16,5 +16,9 @@ namespace ES.CCIS.Host.Controllers
         }
 
         protected ResponseModel respone;
+
+        public HttpResponseMessage createResponse() {
+            return Request.CreateResponse(HttpStatusCode.OK, respone, Configuration.Formatters.JsonFormatter);
+        }
     }
 }

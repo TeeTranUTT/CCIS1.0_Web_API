@@ -229,6 +229,10 @@
     <Compile Include="Commons\HttpResponseMessageBase.cs" />
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_FigureBookController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_RouteController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_SatitonController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_TeamController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Controllers\XacThucController.cs" />
@@ -295,6 +299,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="App_Data\" />
+    <Folder Include="Views\Category_FigureBook\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="fonts\glyphicons-halflings-regular.woff2" />

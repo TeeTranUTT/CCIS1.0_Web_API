@@ -66,5 +66,18 @@ namespace ES.CCIS.Host.Helpers
                 throw new ArgumentException("Có lỗi xảy ra trong quá trình lấy thông tin departmentId từ token.");
             }
         }
+
+        public static int GetUserIdFromToken()
+        {
+            var userInfo = GetUserInfoFromRequest();
+            if (int.TryParse(userInfo.UserId, out int userId))
+            {
+                return userId;
+            }
+            else
+            {
+                throw new ArgumentException("Có lỗi xảy ra trong quá trình lấy thông tin userId từ token.");
+            }
+        }
     }
 }

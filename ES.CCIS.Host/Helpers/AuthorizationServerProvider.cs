@@ -17,22 +17,32 @@ namespace ES.CCIS.Host.Helpers
             context.Validated();
         }
         public override async Task GrantResourceOwnerCredentials(OAuthGrantResourceOwnerCredentialsContext context)
-        {
-           // context.OwinContext.Response.Headers.Add("Access-Control-Allow-Origin", new[] { "*" });
-            using (var dbContext = new CCISContext())
+        {            
+            if (!WebMatrix.WebData.WebSecurity.Initialized) WebMatrix.WebData.WebSecurity.InitializeDatabaseConnection("DefaultConnection", "UserProfile", "UserId", "UserName", autoCreateTables: true);
+            var membership = (WebMatrix.WebData.SimpleMembershipProvider)System.Web.Security.Membership.Provider;
+            var checkLogin = membership.ValidateUser(context.UserName, context.Password);
+            if (checkLogin)
             {
-                var user = dbContext.UserProfile.Where(p => p.UserName == context.UserName).FirstOrDefault();
-                if (user == null)
+                using (var dbContext = new CCISContext())
                 {
-                    context.SetError("invalid_grant", "Provided username and password is incorrect");
-                    return;
+                    var user = dbContext.UserProfile.Where(p => p.UserName == context.UserName).FirstOrDefault();
+                    if (user == null)
+                    {
+                        context.SetError("invalid_grant", "Tài khoản hoặc mật khẩu không đúng.");
+                        return;
+                    }
+                    var identity = new ClaimsIdentity(context.Options.AuthenticationType);
+                    identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
+                    identity.AddClaim(new Claim("FullName", user.FullName));
+                    identity.AddClaim(new Claim("DepartmentId", user.DepartmentId.ToString()));
+                    identity.AddClaim(new Claim("UserId", user.UserId.ToString()));
+                    context.Validated(identity);
                 }
-                var identity = new ClaimsIdentity(context.Options.AuthenticationType);
-                identity.AddClaim(new Claim(ClaimTypes.Name, user.UserName));
-                identity.AddClaim(new Claim("FullName", user.FullName));
-                identity.AddClaim(new Claim("DepartmentId", user.DepartmentId.ToString()));
-                identity.AddClaim(new Claim("UserId", user.UserId.ToString()));
-                context.Validated(identity);
+            }
+            else
+            {
+                context.SetError("invalid_grant", "Tài khoản hoặc mật khẩu không đúng.");
+                return;
             }
         }
     }

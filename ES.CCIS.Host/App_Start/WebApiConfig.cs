@@ -18,7 +18,7 @@ namespace ES.CCIS.Host
                 name: "DefaultApi",
                 routeTemplate: "api/{controller}/{id}",
                 defaults: new { id = RouteParameter.Optional }
-            );
+            );            
         }
     }
 }

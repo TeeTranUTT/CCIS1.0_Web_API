@@ -6,6 +6,7 @@ using Microsoft.Owin.Security.OAuth;
 using Owin;
 using System;
 using System.Collections.Generic;
+using System.Web.Http;
 
 [assembly: OwinStartup(typeof(ES.CCIS.Host.Startup))]
 
@@ -16,7 +17,7 @@ namespace ES.CCIS.Host
         private IEnumerable<IDisposable> GetHangfireServers()
         {
             //Cấu hình HangFire
-            GlobalConfiguration.Configuration
+            Hangfire.GlobalConfiguration.Configuration
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
                 .UseSimpleAssemblyNameTypeSerializer()
                 .UseRecommendedSerializerSettings()
@@ -57,7 +58,8 @@ namespace ES.CCIS.Host
             app.UseOAuthAuthorizationServer(options);
             app.UseOAuthBearerAuthentication(new OAuthBearerAuthenticationOptions());
 
-            System.Web.Http.HttpConfiguration config = new System.Web.Http.HttpConfiguration();
+            HttpConfiguration config = new HttpConfiguration();
+             
             WebApiConfig.Register(config);
         }
     }

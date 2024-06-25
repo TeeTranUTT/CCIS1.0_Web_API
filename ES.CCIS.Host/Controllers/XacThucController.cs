@@ -12,11 +12,12 @@ using System.Web.Http;
 namespace ES.CCIS.Host.Controllers
 {
     [InitializeAdministrator]
+    [RoutePrefix("api/XacThuc")]
     public class XacThucController : ApiController
     {
         [Authorize]
         [HttpGet]
-        [Route("api/XacThuc/LayThongTinNguoiDung")]
+        [Route("LayThongTinNguoiDung")]
         public IHttpActionResult GetUserInfo()
         {
             var userInfo = TokenHelper.GetUserInfoFromRequest();
