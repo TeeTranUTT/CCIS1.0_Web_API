@@ -1,6 +1,7 @@
 ﻿using CCIS_BusinessLogic;
 using CCIS_DataAccess;
 using ES.CCIS.Host.Helpers;
+using ES.CCIS.Host.Models;
 using PagedList;
 using System;
 using System.Collections.Generic;
@@ -30,39 +31,32 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //Thong tin user from token                
                 var userInfo = TokenHelper.GetUserInfoFromRequest();
                 if (departmentId == 0)
-                    departmentId = TokenHelper.GetDepartmentIdFromToken();                
+                    departmentId = TokenHelper.GetDepartmentIdFromToken();
 
                 //list đơn vị con của user đăng nhập
                 var lstDepartmentIds = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
 
                 using (var db = new CCISContext())
                 {
-                    IEnumerable<Category_FigureBookModel> query;
-                    if (departmentId == 0)
+                    IQueryable<Category_FigureBookModel> query;
+
+                    var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
+
+                    query = db.Category_FigureBook.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_FigureBookModel
                     {
-                        query = new List<Category_FigureBookModel>();
-                    }
-                    else
-                    {
-                        var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
-                        query = from item in db.Category_FigureBook
-                                join a in db.Administrator_Department on item.DepartmentId equals a.DepartmentId
-                                where listDepartments.Contains(item.DepartmentId) && item.Status == true
-                                select new Category_FigureBookModel
-                                {
-                                    FigureBookId = item.FigureBookId,
-                                    BookCode = item.BookCode,
-                                    BookName = item.BookName,
-                                    SaveDate = item.SaveDate,
-                                    PeriodNumber = item.PeriodNumber,
-                                    Status = item.Status,
-                                    IsRootBook = item.IsRootBook,
-                                    DepartmentName = a.DepartmentName,
-                                    DepartmentId = item.DepartmentId,
-                                    TeamId = item.TeamId,
-                                    BookType = item.BookType
-                                };
-                    }                    
+                        FigureBookId = item.FigureBookId,
+                        BookCode = item.BookCode,
+                        BookName = item.BookName,
+                        SaveDate = item.SaveDate,
+                        PeriodNumber = item.PeriodNumber,
+                        Status = item.Status,
+                        IsRootBook = item.IsRootBook,
+                        DepartmentName = db.Administrator_Department.Where(p => p.DepartmentId == item.DepartmentId).Select(p => p.DepartmentName).FirstOrDefault(),
+                        DepartmentId = item.DepartmentId,
+                        TeamId = item.TeamId,
+                        BookType = item.BookType
+                    });
+
 
                     if (!string.IsNullOrEmpty(search))
                     {
@@ -173,10 +167,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     var checkFigureBookCodeExisted = db.Category_FigureBook.Any(item => item.BookCode == category_FigureBook.BookCode && item.Status == true);
                     if (checkFigureBookCodeExisted)
-                    {                        
-                        throw new ArgumentException($"Thêm mới sổ ghi chỉ số không thành công. Đã có sổ này trong hệ thống. Xin kiểm tra lại.");                        
+                    {
+                        throw new ArgumentException($"Thêm mới sổ ghi chỉ số không thành công. Đã có sổ này trong hệ thống. Xin kiểm tra lại.");
                     }
-                   
+
                     business_FigureBook.AddCategory_FigureBook(category_FigureBook, userId);
 
                     var figureBook = db.Category_FigureBook.FirstOrDefault(item => item.BookCode == category_FigureBook.BookCode && item.BookName == category_FigureBook.BookName);
@@ -192,7 +186,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                         respone.Status = 1;
                         respone.Message = "Thêm mới sổ ghi chỉ số thành công.";
-                        respone.Data = figureBook.FigureBookId;                        
+                        respone.Data = figureBook.FigureBookId;
                         return createResponse();
                     }
                     else
@@ -201,7 +195,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                         respone.Message = "Thêm mới sổ ghi chỉ số không thành công.";
                         respone.Data = null;
                         return createResponse();
-                    }                    
+                    }
                 }
             }
             catch (Exception ex)
@@ -288,27 +282,27 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("PhanSoGCS")]
-        public HttpResponseMessage Allocate_FigureBook(List<Category_AllocateFigureBookModel> model, int figureBookId)
+        public HttpResponseMessage Allocate_FigureBook(Category_AllocateFigureBookModelInput input)
         {
             try
             {
                 using (var db = new CCISContext())
                 {
-                    var lstBookOfUser = db.Administrator_BookOfUser.Where(item => item.FigureBookId == figureBookId).ToList();
+                    var lstBookOfUser = db.Administrator_BookOfUser.Where(item => item.FigureBookId == input.FigureBookId).ToList();
                     if (lstBookOfUser.Count > 0)
                     {
                         foreach (var item in lstBookOfUser)
                             db.Administrator_BookOfUser.Remove(item);
                     }
 
-                    if (model != null && model.Count > 0)
-                        foreach (var item in model)
+                    if (input.ListUser != null && input.ListUser.Count > 0)
+                        foreach (var item in input.ListUser)
                         {
                             if (item.IsChecked)
                             {
                                 var _BookOfUser = new Administrator_BookOfUser();
                                 _BookOfUser.UserId = item.UserId;
-                                _BookOfUser.FigureBookId = figureBookId;
+                                _BookOfUser.FigureBookId = input.FigureBookId;
                                 db.Administrator_BookOfUser.Add(_BookOfUser);
                             }
                         }

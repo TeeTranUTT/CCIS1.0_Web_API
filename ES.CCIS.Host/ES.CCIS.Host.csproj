@@ -229,10 +229,16 @@
     <Compile Include="Commons\HttpResponseMessageBase.cs" />
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_CurrentTransformerTypeController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_ElectricityMeterTypeController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_EmployeeController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_FigureBookController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_RouteController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_SatitonController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_StockController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_TeamController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_TestingDepartmentController.cs" />
+    <Compile Include="Controllers\DanhMuc\Category_VoltageTransformerTypeController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Controllers\XacThucController.cs" />
