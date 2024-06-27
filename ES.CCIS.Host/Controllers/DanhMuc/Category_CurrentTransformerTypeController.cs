@@ -27,7 +27,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
             {
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_CurrentTransformerType.Select(item => new Category_CurrentTransformerTypeModel
+                    var query = db.Category_CurrentTransformerType.Where(item => item.Status == true).Select(item => new Category_CurrentTransformerTypeModel
                     {
                         Accuracy = item.Accuracy,
                         ConnectionRatio = item.ConnectionRatio,

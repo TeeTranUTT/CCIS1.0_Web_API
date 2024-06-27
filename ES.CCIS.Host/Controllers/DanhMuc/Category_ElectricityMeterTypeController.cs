@@ -28,7 +28,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
             {
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_ElectricityMeterType.Select(item => new Category_ElectricityMeterTypeModel
+                    var query = db.Category_ElectricityMeterType.Where(item => item.Status == true).Select(item => new Category_ElectricityMeterTypeModel
                     {
                         Accuracy = item.Accuracy,
                         AccuracyReactivePower = item.AccuracyReactivePower,

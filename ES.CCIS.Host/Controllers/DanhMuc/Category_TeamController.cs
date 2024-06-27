@@ -41,7 +41,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_Team.Where(item => listDepartments.Contains(item.DepartmentId)).Select(item => new Category_TeamModel
+                    var query = db.Category_Team.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_TeamModel
                     {
                         TeamId = item.TeamId,
                         DepartmentId = item.DepartmentId,

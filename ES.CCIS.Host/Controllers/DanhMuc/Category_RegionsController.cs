@@ -12,16 +12,16 @@ using System.Web.Http;
 namespace ES.CCIS.Host.Controllers.DanhMuc
 {
     [Authorize]
-    [RoutePrefix("api/DanhMuc/Lo")]
-    public class Category_RouteController : ApiBaseController
+    [RoutePrefix("api/DanhMuc/KhuVuc")]
+    public class Category_RegionsController : ApiBaseController
     {
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
-        private readonly Business_Category_Route businessRoute = new Business_Category_Route();
+        private readonly Business_Category_Regions businessRegions = new Business_Category_Regions();
 
         [HttpGet]
-        [Route("Category_RouteManager")]
-        public HttpResponseMessage Category_RouteManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId)
+        [Route("Category_RegionManager")]
+        public HttpResponseMessage Category_RegionManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId)
         {
             try
             {
@@ -37,37 +37,34 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_Route.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_RouteModel
+                    var query = db.Category_Regions.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_RegionsModel
                     {
-                        RouteId = item.RouteId,
                         DepartmentId = item.DepartmentId,
-                        RouteName = item.RouteName,
-                        RouteCode = item.RouteCode,
-                        Type = item.Type,
-                        PotentialCode = item.PotentialCode,
-                        PotentialName = db.Category_Potential.Where(a => a.PotentialCode.Equals(item.PotentialCode)).Select(a => a.PotentialName).FirstOrDefault(),
+                        RegionId = item.RegionId,
+                        RegionCode = item.RegionCode,
+                        RegionName = item.RegionName,
                         Status = item.Status
                     });
 
                     if (!string.IsNullOrEmpty(search))
                     {
-                        query = (IQueryable<Category_RouteModel>)query.Where(item => item.RouteName.Contains(search) || item.RouteCode.Contains(search));
+                        query = (IQueryable<Category_RegionsModel>)query.Where(item => item.RegionName.Contains(search) || item.RegionCode.Contains(search));
                     }
 
-                    var pagedRoute = (IPagedList<Category_RouteModel>)query.OrderBy(p => p.RouteId).ToPagedList(pageNumber, pageSize);
+                    var pagedRegion = (IPagedList<Category_RegionsModel>)query.OrderBy(p => p.RegionId).ToPagedList(pageNumber, pageSize);
 
                     var response = new
                     {
-                        pagedRoute.PageNumber,
-                        pagedRoute.PageSize,
-                        pagedRoute.TotalItemCount,
-                        pagedRoute.PageCount,
-                        pagedRoute.HasNextPage,
-                        pagedRoute.HasPreviousPage,
-                        Routes = pagedRoute.ToList()
+                        pagedRegion.PageNumber,
+                        pagedRegion.PageSize,
+                        pagedRegion.TotalItemCount,
+                        pagedRegion.PageCount,
+                        pagedRegion.HasNextPage,
+                        pagedRegion.HasPreviousPage,
+                        Regions = pagedRegion.ToList()
                     };
                     respone.Status = 1;
-                    respone.Message = "Lấy danh sách lộ thành công.";
+                    respone.Message = "Lấy danh sách khu vực thành công.";
                     respone.Data = response;
                     return createResponse();
                 }
@@ -83,25 +80,23 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpGet]
         [Route("")]
-        public HttpResponseMessage GetRouteById(int routeId)
+        public HttpResponseMessage GetRegionById(int regionId)
         {
             try
             {
-                if (routeId < 0 || routeId == 0)
+                if (regionId < 0 || regionId == 0)
                 {
-                    throw new ArgumentException($"RouteId {routeId} không hợp lệ.");
+                    throw new ArgumentException($"regionId {regionId} không hợp lệ.");
                 }
                 using (var dbContext = new CCISContext())
                 {
-                    var route = dbContext.Category_Route.Where(p => p.RouteId == routeId).Select(p => new Category_RouteModel
+                    var route = dbContext.Category_Regions.Where(p => p.RegionId == regionId).Select(item => new Category_RegionsModel
                     {
-                        RouteId = p.RouteId,
-                        DepartmentId = p.DepartmentId,
-                        RouteCode = p.RouteCode,
-                        RouteName = p.RouteName,
-                        Type = p.Type,
-                        Status = p.Status,
-                        PotentialCode = p.PotentialCode
+                        DepartmentId = item.DepartmentId,
+                        RegionId = item.RegionId,
+                        RegionCode = item.RegionCode,
+                        RegionName = item.RegionName,
+                        Status = item.Status
                     });
 
                     if (route?.Any() == true)
@@ -110,18 +105,18 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                         if (response.Status)
                         {
                             respone.Status = 1;
-                            respone.Message = "Lấy thông tin lộ thành công.";
+                            respone.Message = "Lấy thông tin khu vực thành công.";
                             respone.Data = response;
                             return createResponse();
                         }
                         else
                         {
-                            throw new ArgumentException($"Lộ {response.RouteName} đã bị vô hiệu.");
+                            throw new ArgumentException($"Khu vực {response.RegionName} đã bị vô hiệu.");
                         }
                     }
                     else
                     {
-                        throw new ArgumentException($"Lộ có RouteId {routeId} không tồn tại.");
+                        throw new ArgumentException($"Khu vực có RegionId {regionId} không tồn tại.");
                     }
                 }
             }
@@ -136,7 +131,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("ThemMoi")]
-        public HttpResponseMessage AddCategory_Route(Category_RouteModel route)
+        public HttpResponseMessage AddCategory_Regions(Category_RegionsModel model)
         {
             try
             {
@@ -144,25 +139,25 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-                route.DepartmentId = departmentId;
+                model.DepartmentId = departmentId;
                 #endregion
 
-                businessRoute.AddCategory_Route(route);
+                businessRegions.AddCategory_Regions(model);
 
                 using (var dbContext = new CCISContext())
                 {
-                    var lo = dbContext.Category_Route.Where(p => p.RouteName == route.RouteName && p.RouteCode == route.RouteCode).FirstOrDefault();
-                    if (lo != null)
+                    var khuVuc = dbContext.Category_Regions.Where(p => p.RegionName == model.RegionName && p.RegionCode == model.RegionCode).FirstOrDefault();
+                    if (khuVuc != null)
                     {
                         respone.Status = 1;
-                        respone.Message = "Thêm mới lộ thành công.";
-                        respone.Data = lo.RouteId;
+                        respone.Message = "Thêm mới khu vực thành công.";
+                        respone.Data = khuVuc.RegionId;
                         return createResponse();
                     }
                     else
                     {
                         respone.Status = 0;
-                        respone.Message = "Thêm mới lộ không thành công.";
+                        respone.Message = "Thêm mới khu vực không thành công.";
                         respone.Data = null;
                         return createResponse();
                     }
@@ -179,30 +174,30 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("Sua")]
-        public HttpResponseMessage EditCategory_Route(Category_RouteModel route)
+        public HttpResponseMessage EditCategory_Regions(Category_RegionsModel model)
         {
             try
             {
                 using (var dbContext = new CCISContext())
                 {
-                    var lo = dbContext.Category_Route.Where(p => p.RouteId == route.RouteId).FirstOrDefault();
-                    if (lo == null)
+                    var khuVuc = dbContext.Category_Regions.Where(p => p.RegionId == model.RegionId).FirstOrDefault();
+                    if (khuVuc == null)
                     {
-                        throw new ArgumentException($"Không tồn tại RouteId {route.RouteId}");
+                        throw new ArgumentException($"Không tồn tại RegionId {model.RegionId}");
                     }
 
                     #region Get DepartmentId From Token
 
                     var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-                    route.DepartmentId = departmentId;
+                    model.DepartmentId = departmentId;
                     #endregion
 
-                    businessRoute.EditCategory_Route(route);
+                    businessRegions.EditCategory_Regions(model);
 
                     respone.Status = 1;
-                    respone.Message = "Chỉnh sửa lộ thành công.";
-                    respone.Data = route.RouteId;
+                    respone.Message = "Chỉnh sửa khu vực thành công.";
+                    respone.Data = model.RegionId;
 
                     return createResponse();
                 }
@@ -218,44 +213,18 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("Xoa")]
-        public HttpResponseMessage DeleteCategory_Route(int routeId)
+        public HttpResponseMessage DeleteCategory_Regions(int regionId)
         {
             try
             {
                 using (var db = new CCISContext())
                 {
-                    var target = db.Category_Route.Where(item => item.RouteId == routeId).FirstOrDefault();
+                    var target = db.Category_Regions.Where(item => item.RegionId == regionId).FirstOrDefault();
                     target.Status = false;
                     db.SaveChanges();
                 }
                 respone.Status = 1;
-                respone.Message = "Xóa lộ thành công.";
-                respone.Data = null;
-                return createResponse();
-            }
-            catch (Exception ex)
-            {
-                respone.Status = 0;
-                respone.Message = $"Lỗi: {ex.Message.ToString()}";
-                respone.Data = null;
-                return createResponse();
-            }
-        }
-
-        [HttpPost]
-        [Route("KhoiPhuc")]
-        public HttpResponseMessage RestoreCategory_Route(int routeId)
-        {
-            try
-            {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Route.Where(item => item.RouteId == routeId).FirstOrDefault();
-                    target.Status = true;
-                    db.SaveChanges();
-                }
-                respone.Status = 1;
-                respone.Message = "Khôi phục lộ thành công.";
+                respone.Message = "Xóa khu vực thành công.";
                 respone.Data = null;
                 return createResponse();
             }

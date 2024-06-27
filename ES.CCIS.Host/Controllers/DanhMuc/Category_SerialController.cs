@@ -12,19 +12,19 @@ using System.Web.Http;
 namespace ES.CCIS.Host.Controllers.DanhMuc
 {
     [Authorize]
-    [RoutePrefix("api/DanhMuc/Tram")]
-    public class Category_SatitonController : ApiBaseController
+    [RoutePrefix("api/DanhMuc/MauHoaDonDienTu")]
+    public class Category_SerialController : ApiBaseController
     {
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
-        private readonly Business_Category_Satiton businessstation = new Business_Category_Satiton();
-        #region Trạm
+        private readonly Business_Category_Serial businessSerial = new Business_Category_Serial();
+
         [HttpGet]
-        [Route("Category_SatitonManager")]
-        public HttpResponseMessage Category_SatitonManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId)
+        [Route("Category_SerialManager")]
+        public HttpResponseMessage Category_SerialManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string BillType, [DefaultValue(0)] int departmentId)
         {
             try
-            {                
+            {
                 //Thong tin user from token                
                 var userInfo = TokenHelper.GetUserInfoFromRequest();
                 if (departmentId == 0)
@@ -37,23 +37,30 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_Satiton.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_SatitonModel
+                    var query = db.Category_Serial.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_SerialModel
                     {
-                        StationId = item.StationId,
+                        SerialId = item.SerialId,
                         DepartmentId = item.DepartmentId,
-                        StationName = item.StationName,
-                        StationCode = item.StationCode,
-                        Type = item.Type,
-                        Power = item.Power,
-                        Status = item.Status
+                        BillType = item.BillType,
+                        SpecimenNumber = item.SpecimenNumber,
+                        SpecimenCode = item.SpecimenCode,
+                        TaxCode = item.TaxCode,
+                        MinSerial = item.MinSerial,
+                        MaxSerial = item.MaxSerial,
+                        CurrenSerial = item.CurrenSerial,
+                        ActiveDate = item.ActiveDate,
+                        EndDate = item.EndDate,
+                        Status = item.Status,
+                        //CreateDate =item.
+                        CurrenSerialBefore = item.CurrenSerialBefore
                     });
 
-                    if (!string.IsNullOrEmpty(search))
+                    if (!string.IsNullOrEmpty(BillType))
                     {
-                        query = (IQueryable<Category_SatitonModel>)query.Where(item => item.StationName.Contains(search) || item.StationCode.Contains(search));
+                        query = (IQueryable<Category_SerialModel>)query.Where(item => item.BillType == BillType);
                     }
 
-                    var pagedStation = (IPagedList<Category_SatitonModel>)query.OrderBy(p => p.StationId).ToPagedList(pageNumber, pageSize);
+                    var pagedStation = (IPagedList<Category_SerialModel>)query.OrderBy(p => p.SerialId).ToPagedList(pageNumber, pageSize);
 
                     var response = new
                     {
@@ -66,7 +73,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                         Stations = pagedStation.ToList()
                     };
                     respone.Status = 1;
-                    respone.Message = "Lấy danh sách trạm thành công.";
+                    respone.Message = "Lấy danh sách mẫu hóa đơn điện tử thành công.";
                     respone.Data = response;
                     return createResponse();
                 }
@@ -82,25 +89,32 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpGet]
         [Route("")]
-        public HttpResponseMessage GetStationById(int stationId)
+        public HttpResponseMessage GetSerialById(int serialId)
         {
             try
             {
-                if (stationId < 0 || stationId == 0)
+                if (serialId < 0 || serialId == 0)
                 {
-                    throw new ArgumentException($"stationId {stationId} không hợp lệ.");
+                    throw new ArgumentException($"SerialId {serialId} không hợp lệ.");
                 }
                 using (var dbContext = new CCISContext())
                 {
-                    var station = dbContext.Category_Satiton.Where(item => item.StationId == stationId).Select(item => new Category_SatitonModel
+                    var station = dbContext.Category_Serial.Where(item => item.SerialId == serialId).Select(item => new Category_SerialModel
                     {
-                        StationId = item.StationId,
+                        SerialId = item.SerialId,
                         DepartmentId = item.DepartmentId,
-                        StationName = item.StationName,
-                        StationCode = item.StationCode,
-                        Type = item.Type,
-                        Power = item.Power,
-                        Status = item.Status
+                        BillType = item.BillType,
+                        SpecimenNumber = item.SpecimenNumber,
+                        SpecimenCode = item.SpecimenCode,
+                        TaxCode = item.TaxCode,
+                        MinSerial = item.MinSerial,
+                        MaxSerial = item.MaxSerial,
+                        CurrenSerial = item.CurrenSerial,
+                        ActiveDate = item.ActiveDate,
+                        EndDate = item.EndDate,
+                        Status = item.Status,
+                        //CreateDate =item.
+                        CurrenSerialBefore = item.CurrenSerialBefore
                     });
 
                     if (station?.Any() == true)
@@ -109,18 +123,18 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                         if (response.Status)
                         {
                             respone.Status = 1;
-                            respone.Message = "Lấy thông tin trạm thành công.";
+                            respone.Message = "Lấy thông tin mẫu hóa đơn điện tử thành công.";
                             respone.Data = response;
                             return createResponse();
                         }
                         else
                         {
-                            throw new ArgumentException($"Trạm {response.StationName} đã bị vô hiệu.");
+                            throw new ArgumentException($"Mẫu hóa đơn điện tử {response.SpecimenCode} đã bị vô hiệu.");
                         }
                     }
                     else
                     {
-                        throw new ArgumentException($"Trạm có stationId {stationId} không tồn tại.");
+                        throw new ArgumentException($"Mẫu hóa đơn điện tử có SerialId {serialId} không tồn tại.");
                     }
                 }
             }
@@ -135,7 +149,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("ThemMoi")]
-        public HttpResponseMessage AddCategory_Satiton(Category_SatitonModel station)
+        public HttpResponseMessage AddCategory_Serial(Category_SerialModel model)
         {
             try
             {
@@ -143,25 +157,25 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-                station.DepartmentId = departmentId;
-                #endregion                
-                
-                businessstation.AddCategory_Satiton(station);
+                model.DepartmentId = departmentId;
+                #endregion
+
+                businessSerial.AddCategory_Serial(model);
 
                 using (var dbContext = new CCISContext())
                 {
-                    var tram = dbContext.Category_Satiton.Where(p => p.StationName == station.StationName && p.StationCode == station.StationCode).FirstOrDefault();
-                    if (tram != null)
+                    var serial = dbContext.Category_Serial.Where(p => p.SpecimenCode == model.SpecimenCode && p.SpecimenNumber == model.SpecimenNumber).FirstOrDefault();
+                    if (serial != null)
                     {
                         respone.Status = 1;
-                        respone.Message = "Thêm mới trạm thành công.";
-                        respone.Data = tram.StationId;
+                        respone.Message = "Thêm mới mẫu hóa đơn điện tử thành công.";
+                        respone.Data = serial.SerialId;
                         return createResponse();
                     }
                     else
                     {
                         respone.Status = 0;
-                        respone.Message = "Thêm mới trạm không thành công.";
+                        respone.Message = "Thêm mới mẫu hóa đơn điện tử không thành công.";
                         respone.Data = null;
                         return createResponse();
                     }
@@ -178,30 +192,30 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("Sua")]
-        public HttpResponseMessage EditCategory_Satiton(Category_SatitonModel station)
+        public HttpResponseMessage EditCategory_Serial(Category_SerialModel model)
         {
             try
             {
                 using (var dbContext = new CCISContext())
                 {
-                    var tram = dbContext.Category_Satiton.Where(p => p.StationId == station.StationId).FirstOrDefault();
-                    if (tram == null)
+                    var mauHoaDon = dbContext.Category_Serial.Where(p => p.SerialId == model.SerialId).FirstOrDefault();
+                    if (mauHoaDon == null)
                     {
-                        throw new ArgumentException($"Không tồn tại SatitonId {station.StationId}");
+                        throw new ArgumentException($"Không tồn tại SerialId {model.SerialId}");
                     }
 
                     #region Get DepartmentId From Token
 
                     var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-                    station.DepartmentId = departmentId;
+                    model.DepartmentId = departmentId;
                     #endregion
-                   
-                    businessstation.EditCategory_Satiton(station);
+
+                    businessSerial.EditCategory_Serial(model);
 
                     respone.Status = 1;
-                    respone.Message = "Chỉnh sửa trạm thành công.";
-                    respone.Data = station.StationId;
+                    respone.Message = "Chỉnh sửa mẫu hóa đơn điện tử thành công.";
+                    respone.Data = mauHoaDon.SerialId;
 
                     return createResponse();
                 }
@@ -217,38 +231,26 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
         [HttpPost]
         [Route("Xoa")]
-        public HttpResponseMessage DeleteCategory_Satiton(int stationId)
+        public HttpResponseMessage DeleteCategory_Serial(int serialId)
         {
             try
             {
                 using (var db = new CCISContext())
-                {
-                    //kiểm tra điều kiện xóa: đảm bảo không có điểm đo nào trong trạm này
-                    var kiemtra = db.Concus_ServicePoint.Where(item => item.StationId == stationId)
-                        .Select(item2 => new Concus_ServicePointModel
-                        {
-                            PointCode = item2.PointCode
-                        }).ToList();
-                    if (kiemtra.Count > 0)
+                {                    
+                    var target = db.Category_Serial.Where(item => item.SerialId == serialId).FirstOrDefault();
+                    //kiểm tra nếu chưa dùng thì được xóa
+                    if (target.CurrenSerial == null || target.CurrenSerial == 0)
                     {
-                        throw new ArgumentException($"Đã có điểm đo " + kiemtra[0].PointCode + " trong trạm, không xóa được.");
+                        db.Category_Serial.Remove(target);
                     }
-                    var kiemtra2 = db.Concus_ServicePoint_Log.Where(item => item.StationId == stationId)
-                        .Select(item2 => new Concus_ServicePoint_LogModel
-                        {
-                            PointCode = item2.PointCode
-                        }).ToList();
-                    if (kiemtra2.Count > 0)
+                    else
                     {
-                        throw new ArgumentException($"Đã có điểm đo " + kiemtra2[0].PointCode + " trong trạm, không xóa được.");
+                        target.Status = false;                        
                     }
-
-                    var target = db.Category_Satiton.Where(item => item.StationId == stationId).FirstOrDefault();
-                    target.Status = false;
                     db.SaveChanges();
                 }
                 respone.Status = 1;
-                respone.Message = "Xóa trạm thành công.";
+                respone.Message = "Xóa mẫu hóa đơn điện tử thành công.";
                 respone.Data = null;
                 return createResponse();
             }
@@ -260,6 +262,5 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 return createResponse();
             }
         }
-        #endregion
     }
 }

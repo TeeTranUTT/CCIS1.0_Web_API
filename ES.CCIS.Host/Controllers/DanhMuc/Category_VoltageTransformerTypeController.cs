@@ -27,7 +27,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
             {
                 using (var db = new CCISContext())
                 {
-                    var query = db.Category_VoltageTransformerType.Select(item => new Category_VoltageTransformerTypeModel
+                    var query = db.Category_VoltageTransformerType.Where(item => item.Status == true).Select(item => new Category_VoltageTransformerTypeModel
                     {
                         Accuracy = item.Accuracy,
                         ConnectionRatio = item.ConnectionRatio,
