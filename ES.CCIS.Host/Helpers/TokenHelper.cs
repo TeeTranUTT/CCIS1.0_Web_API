@@ -22,7 +22,7 @@ namespace ES.CCIS.Host.Helpers
         /// </summary>
         /// <param name="identity">ClaimsIdentity từ token</param>
         /// <returns>Thông tin người dùng</returns>
-        public static UserInfo GetUserInfoFromToken(ClaimsIdentity identity)
+        private static UserInfo GetUserInfoFromToken(ClaimsIdentity identity)
         {
             if (identity == null)
             {

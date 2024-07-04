@@ -24,16 +24,11 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         public HttpResponseMessage Category_RouteManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId)
         {
             try
-            {
-                //Thong tin user from token                
-                var userInfo = TokenHelper.GetUserInfoFromRequest();
+            {                
                 if (departmentId == 0)
                     departmentId = TokenHelper.GetDepartmentIdFromToken();
                 //list đơn vị con của đơn vị được search
-                var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
-
-                //list đơn vị con của user đăng nhập
-                var lstDepCombo = DepartmentHelper.GetChildDepIds(administrator_Department.GetIddv(userInfo.UserName));
+                var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);                
 
                 using (var db = new CCISContext())
                 {
