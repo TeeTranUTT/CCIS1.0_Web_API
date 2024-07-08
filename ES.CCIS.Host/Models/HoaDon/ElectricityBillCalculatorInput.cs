@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CCIS_BusinessLogic.CustomBusiness.BillEdit_TaxInvoice;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -19,5 +20,11 @@ namespace ES.CCIS.Host.Models.HoaDon
         public int Term { get; set; }
         public int Month { get; set; }
         public int Year { get; set; }
+    }
+
+    public class CreateReTaxInvoiceInput
+    {
+        public ReBillAdjustment ReBillAdjustment { get; set; }
+        public List<BillTaxAdjustDetail> ListBillTaxAdjust { get; set; }
     }
 }

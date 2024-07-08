@@ -229,6 +229,8 @@
     <Compile Include="Commons\HttpResponseMessageBase.cs" />
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
+    <Compile Include="Controllers\CongTo\CurrentTransformerController.cs" />
+    <Compile Include="Controllers\CongTo\ElectricMeterController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_CurrentTransformerTypeController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_Device_UsbController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_ElectricityMeterTypeController.cs" />
@@ -260,6 +262,7 @@
     <Compile Include="Helpers\CommonDefault.cs" />
     <Compile Include="Helpers\TokenHelper.cs" />
     <Compile Include="Models\ChangePriceModel.cs" />
+    <Compile Include="Models\CongTo\LiquidationMeterInput.cs" />
     <Compile Include="Models\EnumMethods\EnumMethod.cs" />
     <Compile Include="Models\HoaDon\ElectricityBillCalculatorInput.cs" />
     <Compile Include="Models\HopDong\ContractExtendedInfoModel.cs" />
