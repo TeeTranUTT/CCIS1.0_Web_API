@@ -262,6 +262,7 @@
     <Compile Include="Helpers\CommonDefault.cs" />
     <Compile Include="Helpers\TokenHelper.cs" />
     <Compile Include="Models\ChangePriceModel.cs" />
+    <Compile Include="Models\CongTo\InsertEquipmentMT_ElectricityMeterDto.cs" />
     <Compile Include="Models\CongTo\LiquidationMeterInput.cs" />
     <Compile Include="Models\EnumMethods\EnumMethod.cs" />
     <Compile Include="Models\HoaDon\ElectricityBillCalculatorInput.cs" />

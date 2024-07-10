@@ -1,4 +1,6 @@
 ﻿using CCIS_BusinessLogic;
+using CCIS_BusinessLogic.CustomBusiness.InsertEquipmentMT_ElectricityMeter;
+using CCIS_BusinessLogic.CustomBusiness.Models;
 using CCIS_DataAccess;
 using CCIS_DataAccess.ViewModels;
 using ES.CCIS.Host.Helpers;
@@ -15,7 +17,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Web.Configuration;
 using System.Web.Http;
-
+using static CCIS_BusinessLogic.DefaultBusinessValue;
 
 namespace ES.CCIS.Host.Controllers.CongTo
 {
@@ -26,7 +28,6 @@ namespace ES.CCIS.Host.Controllers.CongTo
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Parameter vParameters = new Business_Administrator_Parameter();
         private readonly Business_EquipmentMT_Testing bussinessEquipmentMtTesting = new Business_EquipmentMT_Testing();
-        private readonly Business_EquipmentMT_ElectricityMeter bussinessEquipmentMtElectricityMeter = new Business_EquipmentMT_ElectricityMeter();
         private readonly Business_Administrator_Department businessDepartment = new Business_Administrator_Department();
         private readonly Business_EquipmentMT_StockReport equipmentMT_StockReport = new Business_EquipmentMT_StockReport();
 
@@ -40,6 +41,8 @@ namespace ES.CCIS.Host.Controllers.CongTo
         private readonly Business_EquipmentVT_VoltageTransformer businessEquipmentVTVoltageTransformer = new CCIS_BusinessLogic.Business_EquipmentVT_VoltageTransformer();
         private readonly Business_EquipmentVT_Testing businessEquipmentVTTesting = new Business_EquipmentVT_Testing();
         private readonly Business_EquipmentCT_Testing businessEquipmentCTTesting = new Business_EquipmentCT_Testing();
+
+        private readonly IInsertEquipmentMT_ElectricityMeterBusiness businessInsert = new InsertEquipmentMT_ElectricityMeterBusiness();
 
         [HttpGet]
         [Route("EquipmentMT_ElectricityMeterManager")]
@@ -238,7 +241,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                     try
                     {
                         var departmentId = TokenHelper.GetDepartmentIdFromToken();
-                        if (bussinessEquipmentMtElectricityMeter.CheckExistElectricityMeterCode(
+                        if (businessEquipmentMTElectricityMeter.CheckExistElectricityMeterCode(
                                 model.ElectricityMeter.ElectricityMeterTypeId, model.ElectricityMeter.ManufactureYear,
                                 model.ElectricityMeter.ElectricityMeterNumber, db))
                         {
@@ -261,7 +264,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                         model.ElectricityMeter.TestingDate = model.Testing.TestingDate;
                         model.ElectricityMeter.EndTestingDate = model.Testing.TestingDate.Value.AddMonths(typeCode.TestingDay);
                         model.ElectricityMeter.EndTestingDate = new DateTime(model.ElectricityMeter.EndTestingDate.Year, model.ElectricityMeter.EndTestingDate.Month, 1);
-                        int electricityMeterId = bussinessEquipmentMtElectricityMeter.AddEquipmentMT_ElectricityMeter(model.ElectricityMeter, false, db);
+                        int electricityMeterId = businessEquipmentMTElectricityMeter.AddEquipmentMT_ElectricityMeter(model.ElectricityMeter, false, db);
 
                         //Thông tin cập nhật thông tin kiểm định công tơ
                         if (model.Testing.ListTimeOfUse != null && model.Testing.ListTimeOfUse.Count() > 0)
@@ -312,7 +315,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                     {
                         var departmentId = TokenHelper.GetDepartmentIdFromToken();
                         // Thêm mới công tơ
-                        if (bussinessEquipmentMtElectricityMeter.CheckExistElectricityMeterCode(
+                        if (businessEquipmentMTElectricityMeter.CheckExistElectricityMeterCode(
                                 model.ElectricityMeter.ElectricityMeterTypeId, model.ElectricityMeter.ManufactureYear,
                                 model.ElectricityMeter.ElectricityMeterNumber, db))
                         {
@@ -333,7 +336,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                         model.ElectricityMeter.TestingDate = model.Testing.TestingDate;
                         model.ElectricityMeter.EndTestingDate = model.Testing.TestingDate.Value.AddMonths(typeCode.TestingDay);
                         model.ElectricityMeter.EndTestingDate = new DateTime(model.ElectricityMeter.EndTestingDate.Year, model.ElectricityMeter.EndTestingDate.Month, 1);
-                        int electricityMeterId = bussinessEquipmentMtElectricityMeter.AddEquipmentMT_ElectricityMeter(model.ElectricityMeter, true, db);
+                        int electricityMeterId = businessEquipmentMTElectricityMeter.AddEquipmentMT_ElectricityMeter(model.ElectricityMeter, true, db);
 
                         //Thông tin cập nhật thông tin kiểm định công tơ
                         if (model.Testing.ListTimeOfUse != null && model.Testing.ListTimeOfUse.Count() > 0)
@@ -1143,20 +1146,20 @@ namespace ES.CCIS.Host.Controllers.CongTo
                         //kiểm tra xem trong ngày đã có treo tháo chưa, nếu có rồi thì không cho làm nữa
                         if (model.OperationReport.OperationDate.Value < model.ServicePoint.ActiveDate)
                         {
-                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải từ ngày ký hợp đồng hoặc thay đổi thông tin gần ({model.ServicePoint.ActiveDate.ToString("dd/MM/yyyy")})");                            
+                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải từ ngày ký hợp đồng hoặc thay đổi thông tin gần ({model.ServicePoint.ActiveDate.ToString("dd/MM/yyyy")})");
                         }
 
                         DateTime activeDate2;
                         activeDate2 = db.Index_Value.Where(c => c.PointId == model.ServicePoint.PointId && c.DepartmentId == model.ServicePoint.DepartmentId).Max(c => c.EndDate);
                         if (model.OperationReport.OperationDate.Value <= activeDate2)
                         {
-                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải sau ngày có biến động chỉ số gần nhất ({activeDate2.ToString("dd/MM/yyyy")})");                            
+                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải sau ngày có biến động chỉ số gần nhất ({activeDate2.ToString("dd/MM/yyyy")})");
                         }
 
                         activeDate2 = db.EquipmentMT_OperationReport.Where(c => c.PointId == model.ServicePoint.PointId && c.DepartmentId == model.ServicePoint.DepartmentId).Max(c => c.OperationDate.Value);
                         if (model.OperationReport.OperationDate.Value <= activeDate2)
                         {
-                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải sau ngày có biến động treo tháo gần nhất ({activeDate2.ToString("dd/MM/yyyy")})");                            
+                            throw new ArgumentException($"Kiểm tra: Ngày treo tháo phải sau ngày có biến động treo tháo gần nhất ({activeDate2.ToString("dd/MM/yyyy")})");
                         }
 
                         var departmentId = db.Concus_ServicePoint.Where(item => item.PointId == model.ServicePoint.PointId).FirstOrDefault().DepartmentId;
@@ -1248,27 +1251,27 @@ namespace ES.CCIS.Host.Controllers.CongTo
                                 //Thông báo nếu không tìm thấy công tơ
                                 if (electricMeterB == null)
                                 {
-                                    throw new ArgumentException($"Không tìm thấy công tơ {model.OperationDetailB.ElectricityMeterCode}");                                    
+                                    throw new ArgumentException($"Không tìm thấy công tơ {model.OperationDetailB.ElectricityMeterCode}");
                                 }
 
                                 if (electricMeterB.ActionCode == TreoThaoActionCode.TrenLuoi)
                                 {
-                                    throw new ArgumentException($"Công tơ này đang được treo cho một điểm đo khác vui lòng không treo công tơ này.");                                    
+                                    throw new ArgumentException($"Công tơ này đang được treo cho một điểm đo khác vui lòng không treo công tơ này.");
                                 }
 
                                 var pointType = model.ServicePoint.ServicePointType;
 
                                 if (pointType == 1 && electricMeterB.Type == "DT")
                                 {
-                                    throw new ArgumentException("Điểm đo loại 1 không thể treo công tơ điện tử nhiều giá.");                                   
+                                    throw new ArgumentException("Điểm đo loại 1 không thể treo công tơ điện tử nhiều giá.");
                                 }
                                 if (pointType == 8 && electricMeterB.Type == "HC")
                                 {
-                                    throw new ArgumentException("Điểm đo loại 8 không thể treo công tơ ĐT nhiều giá.");                                    
+                                    throw new ArgumentException("Điểm đo loại 8 không thể treo công tơ ĐT nhiều giá.");
                                 }
                                 if (model.ServicePoint.NumberOfPhases != electricMeterB.NumberOfPhases)
                                 {
-                                    throw new ArgumentException("Số pha điểm đo khác số pha công tơ.");                                    
+                                    throw new ArgumentException("Số pha điểm đo khác số pha công tơ.");
                                 }
 
                                 model.OperationDetailB = electricMeterB;
@@ -1278,7 +1281,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                                 model.IndexValueB = new List<Index_ValueModel>();
                                 if (timeOfUseB.TimeOfUse == null)
                                 {
-                                    throw new ArgumentException("Chưa cấu hình bộ chỉ số của công tơ treo, vui lòng kiểm tra lại công tơ.");                                    
+                                    throw new ArgumentException("Chưa cấu hình bộ chỉ số của công tơ treo, vui lòng kiểm tra lại công tơ.");
                                 }
                                 if (timeOfUseB != null && timeOfUseB.TimeOfUse != null)
                                 {
@@ -1295,14 +1298,14 @@ namespace ES.CCIS.Host.Controllers.CongTo
                                         vm.ElectricityMeterNumber = electricMeterB.ElectricityMeterNumber;
                                         model.IndexValueB.Add(vm);
                                     }
-                                }                                
+                                }
                             }
 
                             #endregion
                             respone.Status = 1;
                             respone.Message = "Treo công tơ thành công.";
                             respone.Data = model;
-                            return createResponse();                            
+                            return createResponse();
                         }
 
                         if (saveWork.Trim() == "Treo TI")
@@ -1336,7 +1339,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                             //Thông báo nếu không tìm thấy TI
                             else
                             {
-                                throw new ArgumentException("Không tìm thấy TI.");                               
+                                throw new ArgumentException("Không tìm thấy TI.");
                             }
                             #endregion
                             respone.Status = 1;
@@ -1376,7 +1379,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                             //Thông báo nếu không tìm thấy TU
                             else
                             {
-                                throw new ArgumentException("Không tìm thấy TU.");                                
+                                throw new ArgumentException("Không tìm thấy TU.");
                             }
                             #endregion
                             respone.Status = 1;
@@ -1389,7 +1392,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                         {
                             //Nếu là treo tháo định kỳ thì bắt buộc nhập công tơ treo
                             if (model.OperationDetailB == null)
-                            {                                
+                            {
                                 dbContextTransaction.Rollback();
                                 throw new ArgumentException("Chưa nhập thông tin công tơ treo.");
                             }
@@ -1428,7 +1431,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
 
                             //Bắt buộc nhập hệ số nhân
                             if (model.OperationDetailB.K_Multiplication == null && model.OperationType != LoaiTreoThao.ThaoThanhLy)
-                            {                                                                
+                            {
                                 dbContextTransaction.Rollback();
                                 throw new ArgumentException("Chưa nhập hệ số nhân.");
                             }
@@ -1459,14 +1462,14 @@ namespace ES.CCIS.Host.Controllers.CongTo
 
                             //Nếu không tìm thấy ngày treo tháo thì thông báo
                             if (calendarOfSaveIndex == null)
-                            {                                
+                            {
                                 dbContextTransaction.Rollback();
                                 throw new ArgumentException($"Không tìm thấy lịch ghi chỉ số tương ứng với ngày treo tháo {operationDate.ToString("dd/MM/yyyy")} để thực hiện cập nhật, Vui lòng treo tháo trong kỳ lập lịch ghi chỉ số.");
                             }
 
                             //Ngày treo tháo không được lớn hơn ngày hiện tại
                             if (operationDate > DateTime.Now)
-                            {                                
+                            {
                                 dbContextTransaction.Rollback();
                                 throw new ArgumentException("Sai ngày treo tháo - phải lớn hơn ngày hiện tại.");
                             }
@@ -1518,7 +1521,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                                     {
                                         //Kiểm tra chỉ số tháo
                                         if (item.NewValue == null || item.NewValue < item.OldValue)
-                                        {                                            
+                                        {
                                             dbContextTransaction.Rollback();
                                             throw new ArgumentException("Sai chỉ số tháo. hoặc chỉ số tháo nhỏ hơn chỉ số cũ.");
                                         }
@@ -1592,7 +1595,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
 
                                         //Cập nhật trạng thái kiểm định = 0 (chưa kiểm định)
                                         businessEquipmentCTTesting.UpdateStatus(item.CurrentTransformerId, 0, db);
-                                    }                                    
+                                    }
                                 }
                             }
 
@@ -1634,7 +1637,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
 
                                         //Cập nhật trạng thái kiểm định = 0 (chưa kiểm định)
                                         businessEquipmentVTTesting.UpdateStatus(item.VoltageTransformerId, 0, db);
-                                    }                                    
+                                    }
                                 }
                             }
 
@@ -1673,9 +1676,1622 @@ namespace ES.CCIS.Host.Controllers.CongTo
             }
         }
 
+        /// <summary>
+        /// hàm insert dữ liệu của chức năng thay công tơ định kỳ
+        /// </summary>
+        /// <param name="model">dữ liệu đẩy lên </param>
+        /// <returns></returns>
+        /// Todo: api này chưa viết chưa hiểu ntn code cũ đang bị lặp lại phần CheckBeforeInsert
+        [HttpPost]
+        [Route("InsertEquipmentMT_ElectricityMeter")]
+        public HttpResponseMessage InsertEquipmentMT_ElectricityMeter(InsertEquipmentMT_ElectricityMeterDto model)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        string message = "Có lỗi";
 
+                        bool isValid = true;
+
+                        var userId = TokenHelper.GetUserIdFromToken();
+
+                        string strQlyCto = vParameters.GetParameterValue("QLYCTO", "RIENG");
+                        bool isDungChungCongTo = false;
+                        if (strQlyCto == "CHUNG")
+                        {
+                            isDungChungCongTo = true;
+                        }
+
+                        foreach (var item in model.LstData)
+                        {
+                            if (string.IsNullOrEmpty(item.ElectricityMeterCode))
+                                continue;
+
+                            string itemMessage = "";
+                            var isValidItem = businessInsert.CheckBeforeInsert(item, ref itemMessage, db, isDungChungCongTo);
+                            //phải chạy lại cái này cho nó lấy lại thông tin từng điểm (cần chỉnh lại)?
+                            if (isValidItem)
+                            {
+                                isValidItem = businessInsert.Insert(item, ref message, userId, businessEquipmentMTOperationReport, db);
+                                if (!isValidItem)
+                                {
+                                    isValid = false;
+                                    item.Message = itemMessage;
+                                }
+                                item.Message = "Cập nhật thành công";
+                            }
+                        }
+                        //insert 
+
+                        if (!isValid)
+                        {
+                            dbContextTransaction.Rollback();
+                            throw new ArgumentException($"Treo tháo thiết bị không thành công.");
+                        }
+
+                        dbContextTransaction.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "Treo tháo thiết bị thành công.";
+                        respone.Data = null;
+                        return createResponse();
+
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// hàm lấy dữ liệu của chức năng treo tháo định kỳ
+        /// </summary>
+        /// <param name="month">tháng nhập vào để tìm kiếm</param>
+        /// <param name="SearchFigureBookId">tham số sổ ghi chỉ số</param>
+        /// <param name="SearchCustomerCode">tham số mã khách hàng</param>
+        /// <returns>đối tượng InsertEquipmentMT_ElectricityMeterDto</returns>
+        /// 
+        [HttpGet]
+        [Route("InsertEquipmentMT_ElectricityMeter")]
+        public HttpResponseMessage InsertEquipmentMT_ElectricityMeter([DefaultValue(0)] int SearchFigureBookId, string SearchCustomerCode)
+        {
+            try
+            {
+                //khai bao model
+                #region declaration
+                var model = new InsertEquipmentMT_ElectricityMeterDto();
+
+                var lstData = new List<InsertEquipmentMT_ElectricityMeterModelItem>();
+
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                #endregion
+
+                //lấy dữ liệu sls
+                #region GetResource                
+
+                if (SearchFigureBookId > 0)
+                    lstData = businessInsert.GetInsertEquipmentMT_ElectricityMeterModelItem(SearchFigureBookId, SearchCustomerCode, departmentId);
+                #endregion
+
+                model.LstData = lstData;
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
         #endregion
 
+        #region chức năng thay công tơ bằng file tách riêng
+        [HttpPost]
+        [Route("InsertEquipmentMT_ByFile")]
+        public HttpResponseMessage InsertEquipmentMT_ByFile(List<EquipmentElectricViewModel> model)
+        {
 
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var EquipmentMT_ElectricityMeterModel = new EquipmentMT_ElectricityMeter();
+                        var EquipmentMT_TestingModel = new EquipmentMT_Testing();
+
+                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                        if (model != null)
+                        {
+                            foreach (var item in model)
+                            {
+                                // Thêm mới công tơ
+                                var electricityMeterTypeId = db.Category_ElectricityMeterType.Where(it => it.TypeCode == item.TypeCode).Select(it => it.ElectricityMeterTypeId).FirstOrDefault();
+                                if (electricityMeterTypeId == 0)
+                                {
+                                    dbContextTransaction.Rollback();
+                                    throw new ArgumentException($"Chủng loại công tơ {item.TypeCode} không tồn tại, vui lòng kiểm tra và thêm mới chủng loại trước khi thực hiện thêm mới công tơ.");
+                                }
+                                var testingDeparmentId = db.Category_TestingDepartment.Where(it => it.TestingDepartmentCode == item.TestingDepartmentCode).Select(it => it.TestingDepartmentId).FirstOrDefault();
+                                if (item.ElectricityMeterNumber == null || item.K_Multiplication == null || item.ManufactureYear == null
+                                    || item.Day == null || item.Month == null || item.Year == null || item.TestingDepartmentCode == null
+                                    || item.TypeCode == null || item.Possesive == null || item.ReportNumber == null || item.ListTimeOfUse == null)
+                                {
+                                    dbContextTransaction.Rollback();
+                                    throw new ArgumentException($"công tơ thiếu dữ liệu, xin nhập lại {item.ElectricityMeterNumber} {item.ReportNumber}!");
+                                }
+                                if (businessEquipmentMTElectricityMeter.CheckExistElectricityMeterCode(
+                                        electricityMeterTypeId, item.ManufactureYear.Value,
+                                        item.ElectricityMeterNumber, db))
+                                {
+                                    dbContextTransaction.Rollback();
+                                    throw new ArgumentException($"Thêm mới công tơ không thành công. Công tơ số {item.ElectricityMeterNumber} đã có hoặc bị trùng trong file !");
+                                }
+                                else
+                                {
+                                    string testingDate = item.Year.Value + "-" + item.Month.Value + "-" + item.Day.Value;
+                                    var typeCode = db.Category_ElectricityMeterType.Where(it => it.TypeCode == item.TypeCode).FirstOrDefault();
+
+                                    var webEmployeeId = businessDepartment.UserId(User.Identity.Name);
+                                    EquipmentMT_ElectricityMeterModel.DepartmentId = departmentId;
+                                    EquipmentMT_ElectricityMeterModel.CreateDate = DateTime.Now;
+                                    EquipmentMT_ElectricityMeterModel.ActionCode = TreoThaoActionCode.TrongKho;
+                                    EquipmentMT_ElectricityMeterModel.ActionDate = null;
+                                    EquipmentMT_ElectricityMeterModel.CreateUser = webEmployeeId;
+                                    EquipmentMT_ElectricityMeterModel.ElectricityMeterNumber = item.ElectricityMeterNumber;
+                                    EquipmentMT_ElectricityMeterModel.ElectricityMeterTypeId = electricityMeterTypeId;
+                                    EquipmentMT_ElectricityMeterModel.Possesive = item.Possesive.Value;
+                                    EquipmentMT_ElectricityMeterModel.ElectricityMeterCode = item.TypeCode + item.ManufactureYear.Value.ToStringInvariant() + item.ElectricityMeterNumber;
+                                    EquipmentMT_ElectricityMeterModel.ManufactureYear = item.ManufactureYear.Value;
+                                    EquipmentMT_ElectricityMeterModel.ReceiptDate = DateTime.Now;
+                                    EquipmentMT_ElectricityMeterModel.StockId = 1;
+                                    EquipmentMT_ElectricityMeterModel.ReasonId = 0;
+                                    EquipmentMT_ElectricityMeterModel.IsRoot = false;
+                                    EquipmentMT_ElectricityMeterModel.TestingDate = DateTime.Parse(testingDate);
+                                    EquipmentMT_ElectricityMeterModel.TestingDate.Value.AddMonths(typeCode.TestingDay);
+                                    db.EquipmentMT_ElectricityMeter.Add(EquipmentMT_ElectricityMeterModel);
+                                    db.SaveChanges();
+                                    int electricityMeterId = EquipmentMT_ElectricityMeterModel.ElectricityMeterId;
+
+                                    //Thông tin cập nhật thông tin kiểm định công tơ
+
+                                    EquipmentMT_TestingModel.ElectricityMeterId = electricityMeterId;
+                                    EquipmentMT_TestingModel.CreateDate = DateTime.Now;
+                                    EquipmentMT_TestingModel.CreateUser = webEmployeeId;
+                                    EquipmentMT_TestingModel.Status = 1;
+                                    EquipmentMT_TestingModel.CurrentRatio = "";
+                                    EquipmentMT_TestingModel.Description = "";
+                                    EquipmentMT_TestingModel.DevDate = DateTime.Now;
+                                    EquipmentMT_TestingModel.DevIndex = 1;
+                                    EquipmentMT_TestingModel.ElectricityMeterId = electricityMeterId;
+                                    EquipmentMT_TestingModel.K_Complement = 1;
+                                    EquipmentMT_TestingModel.K_Multiplication = item.K_Multiplication.Value;
+                                    EquipmentMT_TestingModel.OpticalGate = "";
+                                    EquipmentMT_TestingModel.PliersCode = "";
+                                    EquipmentMT_TestingModel.ReportNumber = item.ReportNumber;
+                                    EquipmentMT_TestingModel.SendDate = DateTime.Now;
+                                    EquipmentMT_TestingModel.Serial = item.Serial;
+                                    EquipmentMT_TestingModel.TimeOfUse = item.ListTimeOfUse;
+                                    EquipmentMT_TestingModel.TaiLeadCode = item.TaiLeadCode;
+                                    EquipmentMT_TestingModel.TaiLeadQuantity = item.TaiLeadQuantity.Value;
+                                    EquipmentMT_TestingModel.TestingDate = DateTime.Parse(testingDate);
+                                    EquipmentMT_TestingModel.TestingDepartmentId = testingDeparmentId;
+                                    EquipmentMT_TestingModel.TestingEmployee = item.TestingEmployee;
+                                    EquipmentMT_TestingModel.TestingLeadCode = item.TestingLeadCode;
+                                    EquipmentMT_TestingModel.TestingLeadQuantity = 1;
+                                    EquipmentMT_TestingModel.VignetteCode = item.VignetteCode;
+                                    EquipmentMT_TestingModel.VoltageRatio = "";
+                                    EquipmentMT_TestingModel.DataError = "";
+                                    db.EquipmentMT_Testing.Add(EquipmentMT_TestingModel);
+                                    db.SaveChanges();
+                                }
+                            }
+                            dbContextTransaction.Commit();
+
+                            respone.Status = 1;
+                            respone.Message = "Thêm mới công tơ thành công.";
+                            respone.Data = null;
+                            return createResponse();
+                        }
+                        else
+                        {
+                            dbContextTransaction.Rollback();
+                            throw new ArgumentException("Không có nhập công tơ.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        [HttpPost]
+        [Route("DeleteElectricMeter")]
+        public HttpResponseMessage DeleteElectricMeter(int electricityMeterId)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    var target = db.EquipmentMT_ElectricityMeter.Where(item => item.ElectricityMeterId == electricityMeterId).FirstOrDefault();
+
+                    var testingEquipment = db.EquipmentMT_Testing.Where(item => item.ElectricityMeterId == electricityMeterId).ToList().LastOrDefault();
+                    if (target != null)
+                    {
+                        if (target.ActionCode == TreoThaoActionCode.TrenLuoi)
+                        {
+                            throw new ArgumentException("Điểm đo đang treo công tơ, không thể thanh lý.");
+                        }
+                        else
+                        {
+                            target.ActionCode = TreoThaoActionCode.TrenLuoi;
+                            testingEquipment.Status = 2;
+                            db.SaveChanges();
+
+                            respone.Status = 1;
+                            respone.Message = "Thanh lý công tơ thành công.";
+                            respone.Data = null;
+                            return createResponse();
+                        }
+                    }
+                    else
+                    {
+                        throw new ArgumentException($"Không có công tơ: {target.ElectricityMeterNumber}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+        #endregion
+
+        #region Treo tháo TU
+        [HttpGet]
+        [Route("EquipmentVT_OperationReport")]
+        public HttpResponseMessage EquipmentVT_OperationReport(int pointId)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    EquipmentVT_OperationReportViewModel model = new EquipmentVT_OperationReportViewModel();
+
+                    //Lấy thông tin điểm đo
+
+                    var servicePointModel = db.Concus_ServicePoint.Where(item => item.PointId.Equals(pointId))
+                        .Select(item => new Concus_ServicePointModel()
+                        {
+                            PointId = item.PointId,
+                            PointCode = item.PointCode,
+                            IsRootPoint = item.IsRootPoint,
+                            CustomerName = item.Concus_Contract.Concus_Customer.Name,
+                            Address = item.Address
+                        }).FirstOrDefault();
+
+                    model.ServicePoint = servicePointModel;
+
+                    //Lấy thông tin tháo
+                    var listAllVTOperationEDetail = db.EquipmentVT_OperationDetail
+                            .Where(item => item.PointId == pointId && (item.Status == 1 || item.Status == 2))
+                            .Select(o => o.ReportId).ToList();
+                    if (listAllVTOperationEDetail != null)
+                    {
+                        var operationReport = db.EquipmentMT_OperationReport
+                                    .Where(item => item.PointId == pointId && listAllVTOperationEDetail.Contains(item.ReportId))
+                                    .OrderByDescending(item => item.CreateDate).ThenByDescending(item => item.ReportId).FirstOrDefault();
+                        if (operationReport != null)
+                        {
+                            decimal reportId = operationReport.ReportId;
+
+                            var listVTOperationEDetail = db.EquipmentVT_OperationDetail.Where(item => item.ReportId == reportId && (item.Status == 1 || item.Status == 2))
+                               .Select(item => new EquipmentVT_OperationDetailModel()
+                               {
+                                   PointId = item.PointId,
+                                   VoltageTransformerId = item.VoltageTransformerId,
+                                   VTCode = item.EquipmentVT_VoltageTransformer.VTCode,
+                                   VTNumber = item.EquipmentVT_VoltageTransformer.VTNumber,
+                                   TypeCode = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.TypeCode,
+                                   NumberOfPhases = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.NumberOfPhases,
+                                   IsEnd = false,
+                                   ConnectionRatio = item.ConnectionRatio
+                               }).ToList();
+
+                            model.VTOperationDetailE = listVTOperationEDetail;
+                        }
+                    }
+
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = model;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EquipmentVT_OperationReport")]
+        public HttpResponseMessage EquipmentVT_OperationReport(EquipmentVT_OperationReportViewModel model, string saveWork)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                        var userId = TokenHelper.GetUserIdFromToken();
+
+                        if (saveWork.Trim() == "Treo TU")
+                        {
+                            #region Tìm TU treo
+                            //Tìm kiếm TU treo - điều kiện mã biến động = A
+                            var voltageTransformerB = db.EquipmentVT_VoltageTransformer.Where(item => item.DepartmentId == departmentId && item.VTCode == model.VTCode.Trim() && item.ActionCode != TreoThaoActionCode.TrenLuoi)
+                                .Select(item => new EquipmentVT_OperationDetailModel()
+                                {
+                                    VoltageTransformerId = item.VoltageTransformerId,
+                                    PointId = model.ServicePoint.PointId,
+                                    VTCode = item.VTCode,
+                                    VTNumber = item.VTNumber,
+                                    TypeCode = item.Category_VoltageTransformerType.TypeCode,
+                                    NumberOfPhases = item.Category_VoltageTransformerType.NumberOfPhases,
+                                    ConnectionRatio = model.VTConnectionRatio
+                                }).FirstOrDefault();
+
+                            if (model.VTOperationDetailB != null && model.VTOperationDetailB.Where(item => item.VTCode == model.VTCode).Count() > 0)
+                            {
+                                throw new ArgumentException("Không tìm thấy TU ");
+                            }
+                            else if (voltageTransformerB != null)
+                            {
+                                model.VTCode = null;
+                                model.VTConnectionRatio = null;
+
+                                ModelState.Clear();
+                                if (model.VTOperationDetailB == null)
+                                {
+                                    model.VTOperationDetailB = new List<EquipmentVT_OperationDetailModel>();
+                                }
+                                model.VTOperationDetailB.Add(voltageTransformerB);
+                            }
+                            //Thông báo nếu không tìm thấy TU
+                            else
+                            {
+                                throw new ArgumentException("Không tìm thấy TU ");
+                            }
+                            #endregion
+
+                            respone.Status = 1;
+                            respone.Message = "Treo TU thành công.";
+                            respone.Data = model;
+                            return createResponse();
+                        }
+
+                        if (saveWork.Trim() == "Cập nhật")
+                        {
+                            //Id sổ ghi chỉ số
+                            var servicePoint = db.Concus_ServicePoint.Where(item => item.PointId.Equals(model.ServicePoint.PointId)).FirstOrDefault();
+                            int figureBookId = servicePoint.FigureBookId;
+
+                            //Check ngày treo tháo trong kỳ
+                            DateTime operationDate = model.OperationReport.OperationDate.Value;
+                            var calendarOfSaveIndex = db.Index_CalendarOfSaveIndex.Where(item => item.FigureBookId == figureBookId
+                               && item.StartDate <= operationDate && item.EndDate >= operationDate && (item.Status == 1 || item.Status == 3)).FirstOrDefault();
+
+                            //Nếu không tìm thấy ngày treo tháo thì thông báo
+                            if (calendarOfSaveIndex == null)
+                            {
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Chưa xác định kỳ hóa đơn ứng với ngày treo tháo. Kiểm tra lập lịch GCS.");
+                            }
+                            if (calendarOfSaveIndex.Status >= 5)
+                            {
+                                string strThongBaoLoi = "";
+                                if (calendarOfSaveIndex.Status == 5)
+                                    strThongBaoLoi = "Sổ GCS đã ở trạng thái xác nhận đủ chỉ số để tính hóa đơn. Kiểm tra lại ngày treo tháo hoặc chuyển sổ về trạng thái nhập chỉ số trước!";
+                                else if (calendarOfSaveIndex.Status > 5 && calendarOfSaveIndex.Status <= 9)
+                                    strThongBaoLoi = "Sổ GCS đã ở trạng thái tính hóa đơn. Kiểm tra lại ngày treo tháo hoặc chuyển sổ về trạng thái nhập chỉ số trước!";
+                                else
+                                    strThongBaoLoi = "Sổ GCS ở trạng thái đã lập hóa đơn, không thể treo tháo vào ngày này!";
+
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException($"{strThongBaoLoi}");
+                            }
+                            //kiểm tra thêm xem kỳ hóa đơn có hợp lý không (kỳ tiếp theo phải chưa có chỉ số DDK, nếu có kỳ hiện tại thì kỳ hiện tại phải đã nhập DDK
+                            var maxReport = db.EquipmentMT_OperationReport
+                                    .Where(o => o.DepartmentId == departmentId && o.PointId == model.ServicePoint.PointId)
+                                    .OrderByDescending(o2 => o2.ReportId)
+                                    .FirstOrDefault();
+                            if (maxReport != null)
+                            {
+                                if (operationDate <= maxReport.OperationDate)
+                                {
+                                    dbContextTransaction.Rollback();
+                                    throw new ArgumentException($"Sai ngày treo tháo - phải lớn hơn ngày treo tháo gần nhất ({maxReport.OperationDate.Value.ToString("dd/MM/yyyy")})");
+                                }
+                            }
+                            //Ngày treo tháo không được lớn hơn ngày hiện tại
+                            if (operationDate > DateTime.Now)
+                            {
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Sai ngày treo tháo - phải lớn hơn ngày hiện tại.");
+                            }
+
+                            //Lưu thông tin biên bản
+                            model.OperationReport.PointId = model.ServicePoint.PointId;
+                            model.OperationReport.Status = true;//Gán mặc định là true
+                            decimal reportId = businessEquipmentMTOperationReport.AddEquipmentMT_OperationReport(model.OperationReport, db, departmentId, userId);
+
+                            #region Save thông tin treo tháo TU
+
+                            //Lưu thông tin tháo TU
+                            if (model.VTOperationDetailE != null && model.VTOperationDetailE.Count > 0)
+                            {
+                                foreach (var item in model.VTOperationDetailE)
+                                {
+                                    //Nếu tích chọn tháo -> save vào db trạng thái = 0
+                                    if (item.IsEnd)
+                                    {
+                                        item.PointId = servicePoint.PointId;
+                                        item.ReportId = reportId;
+                                        item.Status = 0;
+                                        item.CreateUser = userId;
+                                        businessEquipmentVTOperationDetail.AddEquipmentVT_OperationDetail(item, db);
+
+                                        //Cập nhật trạng thái TU thành E
+                                        businessEquipmentVTVoltageTransformer.UpdateActionCode(item.VoltageTransformerId, TreoThaoActionCode.DuoiLuoi, db);
+
+                                        //Cập nhật trạng thái kiểm định = 0 (chưa kiểm định)
+                                        businessEquipmentVTTesting.UpdateStatus(item.VoltageTransformerId, 0, db);
+                                    }
+                                }
+                            }
+
+                            //Lưu thông tin treo TU trạng thái = 1
+                            if (model.VTOperationDetailB != null && model.VTOperationDetailB.Count > 0)
+                            {
+                                foreach (var item in model.VTOperationDetailB)
+                                {
+                                    item.PointId = servicePoint.PointId;
+                                    item.ReportId = reportId;
+                                    item.Status = 1;
+                                    item.CreateUser = userId;
+                                    businessEquipmentVTOperationDetail.AddEquipmentVT_OperationDetail(item, db);
+
+                                    //Cập nhật trạng thái TU thành B
+                                    businessEquipmentVTVoltageTransformer.UpdateActionCode(item.VoltageTransformerId, TreoThaoActionCode.TrenLuoi, db);
+                                }
+                            }
+                            #endregion                            
+
+                            dbContextTransaction.Commit();
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+        #endregion
+
+        #region Treo tháo TI
+        [HttpGet]
+        [Route("EquipmentCT_OperationReport")]
+        public HttpResponseMessage EquipmentCT_OperationReport(int pointId)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    EquipmentCT_OperationReportViewModel model = new EquipmentCT_OperationReportViewModel();
+
+                    //Lấy thông tin điểm đo
+                    Concus_ServicePointModel servicePointModel = db.Concus_ServicePoint.Where(item => item.PointId.Equals(pointId))
+                        .Select(item => new Concus_ServicePointModel()
+                        {
+                            PointId = item.PointId,
+                            PointCode = item.PointCode,
+                            IsRootPoint = item.IsRootPoint,
+                            CustomerName = item.Concus_Contract.Concus_Customer.Name,
+                            Address = item.Address
+                        }).FirstOrDefault();
+
+                    model.ServicePoint = servicePointModel;
+
+                    //Lấy thông tin tháo
+                    var listAllCTOperationEDetail = db.EquipmentCT_OperationDetail
+                            .Where(item => item.PointId == pointId && (item.Status == 1 || item.Status == 2))
+                            .Select(o => o.ReportId).ToList();
+                    if (listAllCTOperationEDetail != null)
+                    {
+                        var operationReport = db.EquipmentMT_OperationReport
+                                            .Where(item => item.PointId == pointId && listAllCTOperationEDetail.Contains(item.ReportId))
+                                            .OrderByDescending(item => item.CreateDate)
+                                            .ThenByDescending(item => item.ReportId).FirstOrDefault();
+                        if (operationReport != null)
+                        {
+                            decimal reportId = operationReport.ReportId;
+
+                            var listCTOperationEDetail = db.EquipmentCT_OperationDetail.Where(item => item.ReportId == reportId && (item.Status == 1 || item.Status == 2))
+                                .Select(item => new EquipmentCT_OperationDetailModel()
+                                {
+                                    PointId = item.PointId,
+                                    CurrentTransformerId = item.CurrentTransformerId,
+                                    CTCode = item.EquipmentCT_CurrentTransformer.CTCode,
+                                    CTNumber = item.EquipmentCT_CurrentTransformer.CTNumber,
+                                    TypeCode = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.TypeCode,
+                                    NumberOfPhases = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.NumberOfPhases,
+                                    IsEnd = false,
+                                    ConnectionRatio = item.ConnectionRatio
+                                }).ToList();
+
+                            model.CTOperationDetailE = listCTOperationEDetail;
+                        }
+                    }
+
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = model;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EquipmentCT_OperationReport")]
+        public HttpResponseMessage EquipmentCT_OperationReport(EquipmentCT_OperationReportViewModel model, string saveWork)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                        var userId = TokenHelper.GetUserIdFromToken();
+
+                        if (saveWork.Trim() == "Treo TI")
+                        {
+                            #region Tìm TI treo
+                            //Tìm kiếm TI treo - điều kiện mã biến động = A
+                            var currentTransformerB = db.EquipmentCT_CurrentTransformer.Where(item => item.DepartmentId == departmentId && item.CTCode == model.CTCode.Trim() && item.ActionCode != TreoThaoActionCode.TrenLuoi)
+                                .Select(item => new EquipmentCT_OperationDetailModel()
+                                {
+                                    CurrentTransformerId = item.CurrentTransformerId,
+                                    PointId = model.ServicePoint.PointId,
+                                    CTCode = item.CTCode,
+                                    CTNumber = item.CTNumber,
+                                    TypeCode = item.Category_CurrentTransformerType.TypeCode,
+                                    NumberOfPhases = item.Category_CurrentTransformerType.NumberOfPhases,
+                                    ConnectionRatio = model.CTConnectionRatio
+                                }).FirstOrDefault();
+
+                            if (currentTransformerB != null)
+                            {
+                                model.CTCode = null;
+                                model.CTConnectionRatio = null;
+
+                                ModelState.Clear();
+                                if (model.CTOperationDetailB == null)
+                                {
+                                    model.CTOperationDetailB = new List<EquipmentCT_OperationDetailModel>();
+                                }
+                                model.CTOperationDetailB.Add(currentTransformerB);
+                            }
+                            //Thông báo nếu không tìm thấy TI
+                            else
+                            {
+                                throw new ArgumentException("Không tìm thấy TI");
+                            }
+                            #endregion
+
+                            respone.Status = 1;
+                            respone.Message = "Treo TI thành công.";
+                            respone.Data = model;
+                            return createResponse();
+                        }
+
+                        if (saveWork.Trim() == "Cập nhật")
+                        {
+                            //Id sổ ghi chỉ số
+                            var servicePoint = db.Concus_ServicePoint.Where(item => item.PointId.Equals(model.ServicePoint.PointId)).FirstOrDefault();
+                            int figureBookId = servicePoint.FigureBookId;
+
+                            //Check ngày treo tháo trong kỳ
+                            DateTime operationDate = model.OperationReport.OperationDate.Value;
+                            var calendarOfSaveIndex = db.Index_CalendarOfSaveIndex.Where(item => item.FigureBookId == figureBookId
+                               && item.StartDate <= operationDate && item.EndDate >= operationDate && (item.Status == 1 || item.Status == 3)).FirstOrDefault();
+
+                            //Nếu không tìm thấy ngày treo tháo thì thông báo
+                            if (calendarOfSaveIndex == null)
+                            {
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Sai ngày treo tháo.");
+                            }
+
+                            var maxReport = db.EquipmentMT_OperationReport
+                                    .Where(o => o.DepartmentId == departmentId && o.PointId == model.ServicePoint.PointId)
+                                    .OrderByDescending(o2 => o2.ReportId)
+                                    .FirstOrDefault();
+                            if (maxReport != null)
+                            {
+                                if (operationDate <= maxReport.OperationDate)
+                                {
+                                    dbContextTransaction.Rollback();
+                                    throw new ArgumentException($"Sai ngày treo tháo - phải lớn hơn ngày treo tháo gần nhất ({maxReport.OperationDate.Value.ToString("dd/MM/yyyy")})");
+                                }
+                            }
+
+                            //Ngày treo tháo không được lớn hơn ngày hiện tại
+                            if (operationDate > DateTime.Now)
+                            {
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Sai ngày treo tháo - phải lớn hơn ngày hiện tại.");
+                            }
+
+                            //tạo biên bản treo tháo
+                            model.OperationReport.PointId = model.ServicePoint.PointId;
+                            model.OperationReport.Status = true;//Gán mặc định là true
+                            decimal reportId = businessEquipmentMTOperationReport.AddEquipmentMT_OperationReport(model.OperationReport, db, departmentId, userId);
+
+
+                            #region Save thông tin treo tháo TI
+
+                            //Lưu thông tin tháo TI
+                            if (model.CTOperationDetailE != null && model.CTOperationDetailE.Count > 0)
+                            {
+                                foreach (var item in model.CTOperationDetailE)
+                                {
+                                    //Nếu tích chọn tháo -> save vào db trạng thái = 0
+                                    if (item.IsEnd)
+                                    {
+                                        item.PointId = servicePoint.PointId;
+                                        item.ReportId = reportId;
+                                        item.Status = 0;
+                                        item.CreateUser = userId;
+                                        businessEquipmentCTOperationDetail.AddEquipmentCT_OperationDetail(item, db);
+
+                                        //Cập nhật trạng thái TI thành E
+                                        businessEquipmentCTCurrentTransformer.UpdateActionCode(item.CurrentTransformerId, TreoThaoActionCode.DuoiLuoi, db);
+
+                                        //Cập nhật trạng thái kiểm định = 0 (chưa kiểm định)
+                                        businessEquipmentCTTesting.UpdateStatus(item.CurrentTransformerId, 0, db);
+                                    }
+                                }
+                            }
+
+                            //Lưu thông tin treo TI (trạng thái = 1)
+                            if (model.CTOperationDetailB != null && model.CTOperationDetailB.Count > 0)
+                            {
+                                foreach (var item in model.CTOperationDetailB)
+                                {
+                                    item.PointId = servicePoint.PointId;
+                                    item.ReportId = reportId;
+                                    item.Status = 1;
+                                    item.CreateUser = userId;
+                                    businessEquipmentCTOperationDetail.AddEquipmentCT_OperationDetail(item, db);
+
+                                    //Cập nhật trạng thái TI thành B
+                                    businessEquipmentCTCurrentTransformer.UpdateActionCode(item.CurrentTransformerId, TreoThaoActionCode.TrenLuoi, db);
+                                }
+                            }
+
+                            #endregion                            
+
+                            dbContextTransaction.Commit();
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+        #endregion
+
+        #region Chuẩn hóa thông tin công tơ
+        [HttpGet]
+        [Route("EditElectricMeter")]
+        public HttpResponseMessage EditElectricMeter(int electricityMeterId)
+        {
+            try
+            {
+                EquipmentMT_ElectricityMeterViewModel model = new EquipmentMT_ElectricityMeterViewModel();
+
+                using (var db = new CCISContext())
+                {
+                    // danh sách thông tin công tơ
+                    var listEquipmentMTElectricityMeter = db.EquipmentMT_ElectricityMeter.Where(item => item.ElectricityMeterId.Equals(electricityMeterId)).Select(item => new EquipmentMT_ElectricityMeterModel()
+                    {
+                        ElectricityMeterId = item.ElectricityMeterId,
+                        ElectricityMeterCode = item.ElectricityMeterCode, // mã công tơ
+                        ElectricityMeterNumber = item.ElectricityMeterNumber, // số công tơ = seri công tơ
+                        ManufactureYear = item.ManufactureYear, // năm sản xuất
+                        Possesive = item.Possesive,// sở hữu
+                        ElectricityMeterTypeId = item.ElectricityMeterTypeId
+                    }).FirstOrDefault();
+
+                    model.ElectricityMeter = listEquipmentMTElectricityMeter;
+
+                    //Kiểm tra tình trạng kiểm định
+                    var ds = db.EquipmentMT_Testing.Where(item => item.ElectricityMeterId.Equals(electricityMeterId)).Select(item => new
+                    {
+                        TestingStatus = item.Status,
+                        TestingDate = item.TestingDate
+                    }).OrderByDescending(item => item.TestingDate).ToList().FirstOrDefault();
+                    if (ds.TestingStatus == 0 || ds.TestingStatus == 2)
+                    {
+                        // Lấy thông tin kiểm định công tơ
+                        var listEquipmentMTTesting = db.EquipmentMT_Testing.Where(item => item.ElectricityMeterId.Equals(electricityMeterId)).Select(item => new EquipmentMT_TestingModel()
+                        {
+                            ElectricityMeterId = item.ElectricityMeterId,
+                            ReportNumber = item.ReportNumber, // biên bản kiểm định
+                            TestingDepartmentId = item.TestingDepartmentId, // id đơn vị kiểm định
+                            TestingEmployee = item.TestingEmployee, // nhân viên kiểm định
+                            TaiLeadCode = item.TaiLeadCode, // mã chì tai
+                            TaiLeadQuantity = item.TaiLeadQuantity, // số viên chì kiểm định
+                            TestingLeadCode = item.TestingLeadCode, //mã chì kiểm định
+                            VignetteCode = item.VignetteCode, // mã tem
+                            Serial = item.Serial, //seri tem
+                            OpticalGate = item.OpticalGate, // tem cổng quang
+                            DevIndex = item.DevIndex, //số lần lập trình
+                            VoltageRatio = item.VoltageRatio, //tỉ số Tu
+                            CurrentRatio = item.CurrentRatio, // tỉ số ti
+                            DataError = item.DataError, // dữ liệu sai số
+                            TestingLeadQuantity = item.TestingLeadQuantity, //số viên chì tai
+                            K_Multiplication = item.K_Multiplication, // hệ số nhân
+                            TestingDate = item.TestingDate, // ngày kiểm định
+                            DevDate = item.DevDate, // ngày lập trình
+                            TestingStatus = false
+                        }).OrderByDescending(item => item.TestingDate).FirstOrDefault();
+                        model.Testing = listEquipmentMTTesting;
+
+                    }
+                    else
+                    {
+                        var listEquipmentMTTesting = db.EquipmentMT_Testing.Where(item => item.ElectricityMeterId.Equals(electricityMeterId)).Select(item => new EquipmentMT_TestingModel()
+                        {
+                            TestingEmployee = item.TestingEmployee, // nhân viên kiểm định
+                            ReportNumber = item.ReportNumber, // biên bản kiểm định
+                            TaiLeadCode = item.TaiLeadCode, // mã chì tai
+                            TaiLeadQuantity = item.TaiLeadQuantity, // số viên chì kiểm định
+                            TestingLeadCode = item.TestingLeadCode, //mã chì kiểm định
+                            VignetteCode = item.VignetteCode, // mã tem
+                            Serial = item.Serial, //seri tem
+                            OpticalGate = item.OpticalGate, // tem cổng quang
+                            DevIndex = item.DevIndex, //số lần lập trình
+                            VoltageRatio = item.VoltageRatio, //tỉ số Tu
+                            CurrentRatio = item.CurrentRatio, // tỉ số ti
+                            DataError = item.DataError, // dữ liệu sai số
+                            TestingLeadQuantity = item.TestingLeadQuantity, //số viên chì tai
+                            K_Multiplication = item.K_Multiplication, // hệ số nhân
+                            TestingDate = item.TestingDate, // ngày kiểm định
+                            DevDate = item.DevDate, // ngày lập trình
+                            TestingStatus = true,
+                            TimeOfUse = item.TimeOfUse
+                        }).OrderByDescending(item => item.TestingDate).FirstOrDefault();
+                        model.Testing = listEquipmentMTTesting;
+
+                    }
+
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = model;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditElectricmeter")]
+        public HttpResponseMessage EditElectricmeter(EquipmentMT_ElectricityMeterViewModel model)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        //lấy kiểm tra điều kiện mã công tơ trùng
+                        if (businessEquipmentMTElectricityMeter.CheckElectricityMeterId(model.ElectricityMeter.ElectricityMeterTypeId, model.ElectricityMeter.ManufactureYear, model.ElectricityMeter.ElectricityMeterNumber, model.ElectricityMeter.ElectricityMeterId))
+                        {
+                            throw new ArgumentException("Mã công tơ đã tồn tại.");                            
+                        }
+                        // lấy thông tin mới của  công tơ.
+                        //model.ElectricityMeter.Possesive = Int32.Parse(Request["idtxtPossesive"]); // giá trị mới cho sở hữu//ToDo: cần ktra lại
+                        var typecode = db.Category_ElectricityMeterType.Where(item => item.ElectricityMeterTypeId == model.ElectricityMeter.ElectricityMeterTypeId).FirstOrDefault(); // mã chủng loại
+                        model.ElectricityMeter.ElectricityMeterCode = typecode.TypeCode + model.ElectricityMeter.ManufactureYear + model.ElectricityMeter.ElectricityMeterNumber;
+                        model.ElectricityMeter.TestingDate = model.Testing.TestingDate;
+                        model.ElectricityMeter.EndTestingDate = model.Testing.TestingDate.Value.AddMonths(typecode.TestingDay);
+                        model.ElectricityMeter.EndTestingDate = new DateTime(model.ElectricityMeter.EndTestingDate.Year, model.ElectricityMeter.EndTestingDate.Month, 1);
+                        // lưu thông tin công tơ vào db
+                        businessEquipmentMTElectricityMeter.EditElectricityMeter(model.ElectricityMeter, db);
+                        // lấy thông tin kiểm định công tơ mới.
+                        model.Testing.ElectricityMeterId = model.ElectricityMeter.ElectricityMeterId;
+                        if (model.Testing.TestingStatus == true)
+                            model.Testing.Status = 1;
+                        if (model.Testing.TestingStatus == false)
+                            model.Testing.Status = 2;
+
+                        if (model.Testing.ListTimeOfUse != null && model.Testing.ListTimeOfUse.Count() > 0)
+                        {
+                            for (int i = 0; i < model.Testing.ListTimeOfUse.Count(); i++)
+                            {
+                                if (i == 0)
+                                    model.Testing.TimeOfUse += model.Testing.ListTimeOfUse[i].ToString();
+                                else
+                                    model.Testing.TimeOfUse += "," + model.Testing.ListTimeOfUse[i].ToString();
+                            }
+                        }
+                        // lưu thông tin chuẩn hóa kiểm định công tơ
+                        bussinessEquipmentMtTesting.EditElectricityMeterTesting(model.Testing, db);
+                        db.SaveChanges();
+                        dbContextTransaction.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "Chuẩn hóa thông tin công tơ thành công.";
+                        respone.Data = null;
+                        return createResponse();                        
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+        #endregion
+
+        #region  Chuẩn hóa thông tin treo tháo - Lấy thông tin trong biên bản treo tháo gần nhất ra để cho phép chỉnh sửa hoặc khôi phục (xóa biên bản)
+        [HttpGet]
+        [Route("EditInfoEquipmentMT")]
+        public HttpResponseMessage EditInfoEquipmentMT(int pointId)
+        {
+            try
+            {
+                decimal? dReportId = 0;  //biên bản treo tháo gần nhất
+                EquipmentMT_OperationReportViewModel model = new EquipmentMT_OperationReportViewModel();
+                using (var db = new CCISContext())
+                {
+                    #region -- Thông tin chung.
+                    //Lấy  thông tin điểm đo
+                    Concus_ServicePointModel InfoServicePointMoldel = db.Concus_ServicePoint.Where(item => item.PointId == pointId).Select(item => new Concus_ServicePointModel()
+                    {
+                        PointId = item.PointId,
+                        PointCode = item.PointCode,
+                        CustomerName = item.Concus_Contract.Concus_Customer.Name,
+                        Address = item.Address
+                    }).FirstOrDefault();
+                    model.ServicePoint = InfoServicePointMoldel;
+
+                    // Lấy thông tin ngày treo tháo
+                    var report = db.EquipmentMT_OperationReport.Where(item => item.PointId.Equals(pointId)).Select(item => item.ReportId).DefaultIfEmpty()?.Max(o => o);
+                    dReportId = report;
+                    var operationReport = db.EquipmentMT_OperationReport.Where(item => item.PointId == pointId && item.ReportId == dReportId).FirstOrDefault();
+                    var DateOperation = new EquipmentMT_OperationReportModel();
+                    DateOperation.PointId = operationReport.PointId;
+                    DateOperation.OperationDate = operationReport.OperationDate;
+                    DateOperation.ReasonId = operationReport.ReasonId;
+                    DateOperation.ReportId = operationReport.ReportId;
+                    model.OperationReport = DateOperation;
+                    model.CanEditData = 1;
+                    #endregion
+
+                    #region -- thông tin công tơ treo tháo
+
+                    if (operationReport != null)
+                    {
+                        // Lấy thông tin công tơ đã tháo
+                        var operationDetailE = db.EquipmentMT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 0)
+                            .Select(item => new EquipmentMT_OperationDetailModel()
+                            {
+                                Id = item.DetailId,
+                                PointId = item.PointId,
+                                ElectricityMeterCode = item.EquipmentMT_ElectricityMeter.ElectricityMeterCode,
+                                ElectricityMeterNumber = item.EquipmentMT_ElectricityMeter.ElectricityMeterNumber,
+                                ElectricityMeterId = item.ElectricityMeterId,
+                                OperationDate = DateOperation.OperationDate,
+                            //Status = 0, //Gán mặc định là tháo
+                            K_Multiplication = item.K_Multiplication,
+                                CreateDate = item.CreateDate
+                            }).FirstOrDefault();
+
+                        model.OperationDetailE = operationDetailE;
+
+                        // Lấy chỉ số công tơ đã tháo
+                        if (operationDetailE != null)
+                        {
+                            List<Index_ValueModel> IndexValuee = db.Index_Value
+                                .Where(item => item.ElectricityMeterId == operationDetailE.ElectricityMeterId
+                                        && (item.IndexType == "DDN") && item.EndDate == operationDetailE.OperationDate.Value)
+                                .Select(item => new Index_ValueModel()
+                                {
+                                    ElectricityMeterCode = operationDetailE.ElectricityMeterCode,
+                                    ElectricityMeterNumber = operationDetailE.ElectricityMeterNumber,
+                                    ElectricityMeterId = operationDetailE.ElectricityMeterId,
+                                    PointId = item.PointId,
+                                    IndexId = item.IndexId,
+                                    TimeOfUse = item.TimeOfUse,
+                                    OldValue = item.OldValue,
+                                    NewValue = item.NewValue,
+                                    IndexType = item.IndexType
+                                }).OrderByDescending(item => item.IndexId).ToList();
+                            model.IndexValueE = IndexValuee;
+
+                        }                        
+
+                        // Lấy thông tin công tơ treo
+                        var OperationDetailB = db.EquipmentMT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 1)
+                            .Select(item => new EquipmentMT_OperationDetailModel()
+                            {
+                                Id = item.DetailId,
+                                PointId = item.PointId,
+                                ElectricityMeterId = item.ElectricityMeterId,
+                                ElectricityMeterCode = item.EquipmentMT_ElectricityMeter.ElectricityMeterCode,
+                                ElectricityMeterNumber = item.EquipmentMT_ElectricityMeter.ElectricityMeterNumber,
+                                OperationDate = DateOperation.OperationDate,
+                            //Status = 0, //Gán mặc định là tháo
+                            K_Multiplication = item.K_Multiplication,
+                                PositionId = item.PositionId,
+                                CreateDate = item.CreateDate,
+                            }).FirstOrDefault();
+                        model.OperationDetailB = OperationDetailB;
+
+                        // lấy chỉ số công tơ đang treo
+                        if (OperationDetailB != null)
+                        {
+                            {
+                                List<Index_ValueModel> IndexValueB = db.Index_Value.Where(item => item.ElectricityMeterId == OperationDetailB.ElectricityMeterId
+                                       && (item.IndexType == "DUP") && item.EndDate == OperationDetailB.OperationDate.Value
+                                        ).Select(item => new Index_ValueModel()
+                                        {
+                                            ElectricityMeterCode = OperationDetailB.ElectricityMeterCode,
+                                            ElectricityMeterNumber = OperationDetailB.ElectricityMeterNumber,
+                                            PointId = item.PointId,
+                                            IndexId = item.IndexId,
+                                            TimeOfUse = item.TimeOfUse,
+                                            OldValue = item.OldValue,
+                                            NewValue = item.NewValue,
+                                            IndexType = item.IndexType
+                                        }).OrderByDescending(item => item.IndexId).ToList();
+                                model.IndexValueB = IndexValueB;
+
+                                //kiểm tra xem có biến động chỉ số sau đó chưa?
+                                if (IndexValueB.Count > 0)
+                                {
+                                    var idCS = IndexValueB.Max(it => it.IndexId);
+                                    var IndexValueBd = db.Index_Value
+                                            .Where(item => item.PointId == OperationDetailB.PointId
+                                              && item.IndexId > idCS).FirstOrDefault();
+                                    if (IndexValueBd != null)
+                                        model.CanEditData = 0;
+                                }
+                            }
+                        }
+                        // loại treo tháo. bằng nhau thì là treo tháo theo lập trình lại công tơ.
+                        // không bằng nhau thì theo định kỳ
+                        if (OperationDetailB != null && operationDetailE != null)
+                        {
+                            if (OperationDetailB.ElectricityMeterId == operationDetailE.ElectricityMeterId)
+                            {
+                                model.OperationType = 2;
+                            }
+                            else
+                            {
+                                model.OperationType = 1;
+                            }
+                        }
+                        else
+                        {
+                            model.OperationType = 1;
+                        }
+                    }
+                    #endregion
+
+                    #region -- thông tin TU treo tháo
+                    // Lấy thông tin TU đã tháo
+                    if (operationReport != null)
+                    {
+                        var listVTOperationEDetail = db.EquipmentVT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 0)
+                                .Select(item => new EquipmentVT_OperationDetailModel()
+                                {
+                                    DetailId = item.DetailId,
+                                    PointId = item.PointId,
+                                    VoltageTransformerId = item.VoltageTransformerId,
+                                    VTCode = item.EquipmentVT_VoltageTransformer.VTCode,
+                                    VTNumber = item.EquipmentVT_VoltageTransformer.VTNumber,
+                                    TypeCode = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.TypeCode,
+                                    NumberOfPhases = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.NumberOfPhases,
+                                    IsEnd = false,
+                                    ConnectionRatio = item.ConnectionRatio
+                                }).ToList();
+
+                        model.VTOperationDetailE = listVTOperationEDetail;
+                        // Lấy thông tin TU đang treo
+                        var listVTOperationBDetail = db.EquipmentVT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 1)
+                                .Select(item => new EquipmentVT_OperationDetailModel()
+                                {
+                                    PointId = item.PointId,
+                                    VoltageTransformerId = item.VoltageTransformerId,
+                                    VTCode = item.EquipmentVT_VoltageTransformer.VTCode,
+                                    VTNumber = item.EquipmentVT_VoltageTransformer.VTNumber,
+                                    TypeCode = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.TypeCode,
+                                    NumberOfPhases = item.EquipmentVT_VoltageTransformer.Category_VoltageTransformerType.NumberOfPhases,
+                                    IsEnd = false,
+                                    ConnectionRatio = item.ConnectionRatio
+                                }).ToList();
+
+                        model.VTOperationDetailB = listVTOperationBDetail;
+                    }
+                    #endregion
+
+                    #region -- thông tin TI treo tháo
+                    // lấy thông tin TI đã tháo
+                    if (operationReport != null)
+                    {
+                        var ListCTOperationEDetail = db.EquipmentCT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 0)
+                                .Select(item => new EquipmentCT_OperationDetailModel()
+                                {
+                                    DetailId = item.DetailId,
+                                    PointId = item.PointId,
+                                    CurrentTransformerId = item.CurrentTransformerId,
+                                    CTCode = item.EquipmentCT_CurrentTransformer.CTCode,
+                                    CTNumber = item.EquipmentCT_CurrentTransformer.CTNumber,
+                                    TypeCode = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.TypeCode,
+                                    NumberOfPhases = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.NumberOfPhases,
+                                    IsEnd = false,
+                                    ConnectionRatio = item.ConnectionRatio
+                                }).ToList();
+                        model.CTOperationDetailE = ListCTOperationEDetail;
+
+                        // lấy thông tin TI đang treo
+                        var listCTOperationBDetail = db.EquipmentCT_OperationDetail.Where(item => item.PointId == pointId && item.ReportId == dReportId && item.Status == 1)
+                                    .Select(item => new EquipmentCT_OperationDetailModel()
+                                    {
+                                        DetailId = item.DetailId,
+                                        PointId = item.PointId,
+                                        CurrentTransformerId = item.CurrentTransformerId,
+                                        CTCode = item.EquipmentCT_CurrentTransformer.CTCode,
+                                        CTNumber = item.EquipmentCT_CurrentTransformer.CTNumber,
+                                        TypeCode = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.TypeCode,
+                                        NumberOfPhases = item.EquipmentCT_CurrentTransformer.Category_CurrentTransformerType.NumberOfPhases,
+                                        IsEnd = false,
+                                        ConnectionRatio = item.ConnectionRatio
+                                    }).ToList();
+
+                        model.CTOperationDetailB = listCTOperationBDetail;
+                    }
+                    #endregion
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = model;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditInfoEquipmentMT")]
+        public HttpResponseMessage EditInfoEquipmentMT(EquipmentMT_OperationReportViewModel model, string saveWork)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                        var userId = TokenHelper.GetUserIdFromToken();
+
+                        if (saveWork.Trim() == "Treo công tơ")
+                        {
+                            #region tìm kiếm công tơ treo công tơ mã biến động = A.
+
+                            var EquipmentMTB = db.EquipmentMT_ElectricityMeter.Where(item => item.ElectricityMeterCode == model.OperationDetailB.ElectricityMeterCode && item.ActionCode == TreoThaoActionCode.TrongKho).Select(item => new EquipmentMT_OperationDetailModel()
+                            {
+                                PointId = model.ServicePoint.PointId,
+                                ElectricityMeterCode = item.ElectricityMeterCode,
+                                ElectricityMeterNumber = item.ElectricityMeterNumber,
+                                ElectricityMeterId = item.ElectricityMeterId,
+                                Status = 1, //Gán mặc định là treo
+                                K_Multiplication = model.OperationDetailB.K_Multiplication
+                            }).FirstOrDefault();
+                            if (EquipmentMTB != null)
+                            {
+                                model.OperationDetailB = EquipmentMTB;
+                                //Lấy thông tin bộ chỉ số treo từ bảng kiểm định nếu tìm thấy công tơ                        
+                                var timeOfUseB = db.EquipmentMT_Testing.Where(item => item.ElectricityMeterId == EquipmentMTB.ElectricityMeterId).FirstOrDefault();
+                                model.IndexValueB = new List<Index_ValueModel>();
+                                if (timeOfUseB != null && timeOfUseB.TimeOfUse != null)
+                                {
+                                    string[] arrTimeOfUseB = timeOfUseB.TimeOfUse.Split(',');
+
+                                    foreach (var item in arrTimeOfUseB)
+                                    {
+                                        Index_ValueModel vm = new Index_ValueModel();
+                                        vm.IndexType = "DUP";
+                                        vm.ElectricityMeterId = EquipmentMTB.ElectricityMeterId;
+                                        vm.PointId = model.ServicePoint.PointId;
+
+                                        vm.TimeOfUse = item;
+                                        vm.ElectricityMeterCode = EquipmentMTB.ElectricityMeterCode;
+                                        vm.ElectricityMeterNumber = EquipmentMTB.ElectricityMeterNumber;
+                                        model.IndexValueB.Add(vm);
+                                    }
+                                }
+                                ModelState.Clear();
+                            }
+                            //Thông báo nếu không tìm thấy công tơ
+                            else
+                            {
+                                throw new ArgumentException($"Không tìm thấy công tơ {model.OperationDetailB.ElectricityMeterCode}");                                
+                            }
+
+                            respone.Status = 1;
+                            respone.Message = "Treo công tơ thành công.";
+                            respone.Data = model;
+                            return createResponse();
+                            #endregion                            
+                        }
+
+                        if (saveWork.Trim() == "Treo TU")
+                        {
+                            #region tìm kiếm công tơ theo mã biến động = A
+                            var voltageTransformerB = db.EquipmentVT_VoltageTransformer.Where(item => item.DepartmentId == departmentId && item.VTCode == model.VTCode.Trim() && item.ActionCode == TreoThaoActionCode.TrongKho)
+                                .Select(item => new EquipmentVT_OperationDetailModel()
+                                {
+                                    VoltageTransformerId = item.VoltageTransformerId,
+                                    PointId = model.ServicePoint.PointId,
+                                    VTCode = item.VTCode,
+                                    VTNumber = item.VTNumber,
+                                    TypeCode = item.Category_VoltageTransformerType.TypeCode,
+                                    NumberOfPhases = item.Category_VoltageTransformerType.NumberOfPhases,
+                                    ConnectionRatio = model.VTConnectionRatio
+                                }).FirstOrDefault();
+
+                            if (voltageTransformerB != null)
+                            {
+                                model.VTCode = null;
+                                model.VTConnectionRatio = null;
+
+                                ModelState.Clear();
+                                if (model.VTOperationDetailB == null)
+                                {
+                                    model.VTOperationDetailB = new List<EquipmentVT_OperationDetailModel>();
+                                }
+                                model.VTOperationDetailB.Add(voltageTransformerB);
+                            }
+                            //Thông báo nếu không tìm thấy TU
+                            else
+                            {                                
+                                throw new ArgumentException("Không tìm thấy TU");
+                            }
+                            #endregion
+
+                            respone.Status = 1;
+                            respone.Message = "Treo TU thành công.";
+                            respone.Data = model;
+                            return createResponse();
+                        }
+
+                        if (saveWork.Trim() == "Treo TI")
+                        {
+                            #region Tìm kiếm công tơ theo mã biến động = A
+                            var currentTransformerB = db.EquipmentCT_CurrentTransformer.Where(item => item.DepartmentId == departmentId && item.CTCode == model.CTCode.Trim() && item.ActionCode == TreoThaoActionCode.TrongKho)
+                                .Select(item => new EquipmentCT_OperationDetailModel()
+                                {
+                                    CurrentTransformerId = item.CurrentTransformerId,
+                                    PointId = model.ServicePoint.PointId,
+                                    CTCode = item.CTCode,
+                                    CTNumber = item.CTNumber,
+                                    TypeCode = item.Category_CurrentTransformerType.TypeCode,
+                                    NumberOfPhases = item.Category_CurrentTransformerType.NumberOfPhases,
+                                    ConnectionRatio = model.CTConnectionRatio
+                                }).FirstOrDefault();
+
+                            if (currentTransformerB != null)
+                            {
+                                model.CTCode = null;
+                                model.CTConnectionRatio = null;
+
+                                ModelState.Clear();
+                                if (model.CTOperationDetailB == null)
+                                {
+                                    model.CTOperationDetailB = new List<EquipmentCT_OperationDetailModel>();
+                                }
+                                model.CTOperationDetailB.Add(currentTransformerB);
+                            }
+                            //Thông báo nếu không tìm thấy TI
+                            else
+                            {                                
+                                throw new ArgumentException("Không tìm thấy TI");
+                            }
+                            #endregion
+
+                            respone.Status = 1;
+                            respone.Message = "Treo TI thành công.";
+                            respone.Data = model;
+                            return createResponse();
+                        }
+
+                        //xóa biên bản treo tháo
+                        if (saveWork.Trim() == "Phục hồi")
+                        {
+                            //Xóa biên bản treo tháo đã thực hiện
+                            try
+                            {
+                                #region Kiểm tra trạng thái ghi chỉ số trước khi cho phép phục hồi trạng thái
+
+                                var lastIndexTypeRecordOfPointId = db.Index_Value.Where(item => item.PointId == model.ServicePoint.PointId).OrderByDescending(item => item.IndexId).Select(item => item.IndexType).FirstOrDefault();
+                                if (lastIndexTypeRecordOfPointId != null && lastIndexTypeRecordOfPointId == IndexType.DDK)
+                                {                                    
+                                    throw new ArgumentException("Không thể phục hồi treo tháo khi đã có chỉ số định kỳ.");
+                                }
+
+                                #endregion
+
+                                #region phục hồi công tơ
+                                if (model.IndexValueB != null && model.IndexValueB.Where(cs => cs.IndexType != "DUP").Count() > 0)
+                                {                                    
+                                    throw new ArgumentException("Không thể phục hồi treo tháo khi đã có chỉ số định kỳ");
+                                }
+                                
+                                //xóa chỉ số treo
+                                if (model.IndexValueB != null)
+                                {
+                                    for (int i = 0; i < model.IndexValueB.Count(); i++)
+                                    {
+                                        var indexidB = model.IndexValueB[i].IndexId;
+                                        businessIndexValue.DeleteIndexvalueDUP(indexidB, db);
+                                    }
+                                }
+                                //Xóa chỉ số công tơ đã tháo
+                                if (model.IndexValueE != null)
+                                {
+                                    for (int i = 0; i < model.IndexValueE.Count(); i++)
+                                    {
+                                        var indexidE = model.IndexValueE[i].IndexId;
+                                        businessIndexValue.DeleteIndexvalueDDN(indexidE, db);
+                                    }
+                                }
+
+                                var reportId = model.OperationReport.ReportId;
+                                // Xóa biên bản treo tháo chi tiết.
+                                businessEquipmentMTOperationDetail.DeleteOperationDetail(reportId, db);
+                                // Chuyển công tơ đã tháo về đang treo.
+                                if (model.OperationDetailE != null)
+                                {
+                                    if (model.OperationDetailE.ElectricityMeterId != null && model.OperationDetailE.ElectricityMeterId != 0)
+                                    {
+                                        var ElectricityMeteridE = model.OperationDetailE.ElectricityMeterId;
+                                        //var actionCodeE = "B"; // phục hồi từ trong kho về đang treo
+                                        businessEquipmentMTElectricityMeter.UpdateActionCode(ElectricityMeteridE, TreoThaoActionCode.TrenLuoi, db);
+                                        bussinessEquipmentMtTesting.UpdateStatus(model.OperationDetailE.ElectricityMeterId, 1, db);
+                                    }
+                                }
+                                // chuyển công tơ đang treo về trong kho
+                                if (model.OperationDetailB != null)
+                                {
+                                    if (model.OperationDetailB.ElectricityMeterId != null && model.OperationDetailB.ElectricityMeterId != 0 && (model.OperationDetailE == null || model.OperationDetailB.ElectricityMeterId != model.OperationDetailE.ElectricityMeterId))
+                                    {
+                                        var ElectricityMeteridB = model.OperationDetailB.ElectricityMeterId;
+                                        //var actionCodeE = "A"; // phục hồi từ trong kho về đang treo
+                                        businessEquipmentMTElectricityMeter.UpdateActionCode(ElectricityMeteridB, TreoThaoActionCode.TrongKho, db);
+                                    }
+                                }
+
+                                #endregion
+
+                                #region Phục hồi TI
+                                //Ti đang treo
+                                if (model.CTOperationDetailB != null && model.CTOperationDetailB.Count() > 0)
+                                {
+                                    foreach (var item in model.CTOperationDetailB)
+                                    {
+                                        // xóa chi tiết biên bản treo tháo
+                                        businessEquipmentCTOperationDetail.DeleteEquipmentCT_OperationDetail(item, db, reportId);
+                                        //Cập nhật trạng thái TI thành A
+                                        businessEquipmentCTCurrentTransformer.UpdateActionCode(item.CurrentTransformerId, TreoThaoActionCode.TrongKho, db);
+
+                                        //Cập nhật trạng thái kiểm định = 1 (kiểm định)
+                                        businessEquipmentCTTesting.UpdateStatus(item.CurrentTransformerId, 1, db);
+                                    }
+                                }
+                                if (model.CTOperationDetailE != null && model.CTOperationDetailE.Count() > 0)
+                                {
+                                    foreach (var item in model.CTOperationDetailE)
+                                    {
+                                        // xóa chi tiết biên bản treo tháo
+                                        businessEquipmentCTOperationDetail.DeleteEquipmentCT_OperationDetail(item, db, reportId);
+                                        //Cập nhật trạng thái TI thành E
+                                        businessEquipmentCTCurrentTransformer.UpdateActionCode(item.CurrentTransformerId, TreoThaoActionCode.TrenLuoi, db);
+
+                                        //Cập nhật trạng thái kiểm định = 1 (kiểm định)
+                                        businessEquipmentCTTesting.UpdateStatus(item.CurrentTransformerId, 1, db);
+                                    }
+                                }
+                                //lấy Ti gần nhất phục hồi
+                                #endregion
+
+                                #region Phục hồi TU
+                                // TU đang treo
+                                if (model.VTOperationDetailB != null && model.VTOperationDetailB.Count() > 0)
+                                {
+                                    foreach (var item in model.VTOperationDetailB)
+                                    {
+                                        // xóa chi tiết biên bản treo tháo
+                                        businessEquipmentVTOperationDetail.DelereEquipmentVT_OperationDetail(item, db, reportId);
+                                        //Cập nhật trạng thái TI thành E
+                                        businessEquipmentVTVoltageTransformer.UpdateActionCode(item.VoltageTransformerId, TreoThaoActionCode.TrongKho, db);
+
+                                        //Cập nhật trạng thái kiểm định = 1 (kiểm định)
+                                        businessEquipmentVTTesting.UpdateStatus(item.VoltageTransformerId, 1, db);
+                                    }
+                                }
+                                //TU đã tháo
+                                if (model.VTOperationDetailE != null && model.VTOperationDetailE.Count() > 0)
+                                {
+                                    foreach (var item in model.VTOperationDetailE)
+                                    {
+                                        // xóa chi tiết biên bản treo tháo
+                                        businessEquipmentVTOperationDetail.DelereEquipmentVT_OperationDetail(item, db, reportId);
+                                        //Cập nhật trạng thái TI thành B
+                                        businessEquipmentVTVoltageTransformer.UpdateActionCode(item.VoltageTransformerId, TreoThaoActionCode.TrenLuoi, db);
+
+                                        //Cập nhật trạng thái kiểm định = 1 (kiểm định)
+                                        businessEquipmentVTTesting.UpdateStatus(item.VoltageTransformerId, 1, db);
+                                    }
+                                }
+                                #endregion
+
+                                // Xóa biên bản treo tháo.
+                                businessEquipmentMTOperationReport.DeleteOperationReport(reportId, db);
+
+                                dbContextTransaction.Commit();
+                                
+                                throw new ArgumentException("Phục hồi treo tháo thành công.");
+
+                            }
+                            catch (Exception ex1)
+                            {                                
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException($"Lỗi khi phục hồi biên bản treo tháo: {ex1.Message}");
+                            }
+                        }
+
+                        if (saveWork.Trim() == "Cập nhật")
+                        {
+                            #region -- thông tin chung
+                            //không bắt ngược được là treo định kỳ hay treo theo lập trình lại công tơ
+
+                            // kiểm tra ngày treo tháo thỏa mãn điều kiện trong kỳ.
+
+                            if (model.IndexValueB != null)
+                            {
+                                for (int i = 0; i < model.IndexValueB.Count(); i++)
+                                {
+                                    var indextypeB = model.IndexValueB[i].IndexType;
+                                    if (indextypeB == "DDK")
+                                    {                                        
+                                        throw new ArgumentException("Không thể cập nhật khi đã có chỉ số định kỳ.");
+                                    }
+                                }
+                            }
+
+                            // kiểm tra hệ số nhân.
+                            if (model.OperationDetailB.K_Multiplication == null)
+                            {                                
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Chưa nhập hệ số nhân.");
+                            }
+
+                            #endregion
+
+                            #region -- save thông tin công tơ
+                            //cho phép sửa các thông tin: ngày treo tháo; chỉ số; hệ số nhân; vị trí treo
+
+                            //Id sổ ghi chỉ số
+                            var servicePoint = db.Concus_ServicePoint.Where(item => item.PointId.Equals(model.ServicePoint.PointId)).FirstOrDefault();
+                            int figureBookId = servicePoint.FigureBookId;
+
+                            //Check ngày treo tháo trong kỳ
+
+                            DateTime operationDate = model.OperationReport.OperationDate.Value;
+                            var calendarOfSaveIndex = db.Index_CalendarOfSaveIndex.Where(item => item.FigureBookId == figureBookId
+                               && item.StartDate <= operationDate && item.EndDate >= operationDate && (item.Status == 1 || item.Status == 3)).FirstOrDefault();
+
+                            //Nếu không tìm thấy ngày treo tháo thì thông báo
+                            if (calendarOfSaveIndex == null)
+                            {                                
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Sai ngày treo tháo.");
+                            }
+
+                            //Ngày treo tháo không được lớn hơn ngày hiện tại
+                            if (operationDate > DateTime.Now)
+                            {                                
+                                dbContextTransaction.Rollback();
+                                throw new ArgumentException("Sai ngày treo tháo - phải lớn hơn ngày hiện tại.");
+                            }
+                            //cập nhật ngày
+
+                            model.OperationReport.PointId = model.ServicePoint.PointId;
+                            model.OperationReport.Status = true;//Gán mặc định là true
+                            var PointId = model.OperationReport.PointId;
+                            //sửa ngày trong biên bản
+                            var target = db.EquipmentMT_OperationReport.Where(item => item.PointId.Equals(PointId)).OrderByDescending(item => item.OperationDate).ThenByDescending(item => item.ReportId).FirstOrDefault();
+                            if (target.OperationDate != operationDate)
+                            {
+                                businessEquipmentMTOperationReport.EditDate(model.OperationReport, db, departmentId, userId);
+                            }
+                            // Sửa lại vị trí treo, HSN
+                            model.OperationDetailB.PointId = model.ServicePoint.PointId;
+                            model.OperationDetailB.Status = 1;//Gán mặc định là 1
+                            businessEquipmentMTOperationDetail.EditPositionId(model.OperationDetailB, db);
+
+                            // Lưu lại chỉ số tháo
+                            if (model.IndexValueE != null)
+                            {
+                                foreach (var item in model.IndexValueE)
+                                {
+                                    //Kiểm tra chỉ số tháo
+                                    if (item.NewValue == null || item.NewValue < item.OldValue)
+                                    {                                        
+                                        dbContextTransaction.Rollback();
+                                        throw new ArgumentException("Sai chỉ số tháo.");
+                                    }
+                                    item.EndDate = operationDate;
+                                    businessIndexValue.EditIndexValueE(item, db);
+                                }
+                            }
+
+                            //Lưu chỉ số treo
+                            foreach (var item in model.IndexValueB)
+                            {
+                                item.Coefficient = model.OperationDetailB.K_Multiplication;
+                                item.StartDate = operationDate;
+                                item.EndDate = operationDate;
+                                //item.IndexType = "DUP";
+                                item.OldValue = item.NewValue;
+                                //item.CreateUser = userId;
+                                businessIndexValue.EditIndexValueB(item, db);
+                            }
+
+                            #endregion
+
+                            decimal reportId = model.OperationReport.ReportId;
+                            #region -- Save thông tin TU
+                            // Save chỉ số TU đã tháo.---
+                            //save chỉ số TU treo
+                            if (model.VTOperationDetailB != null && model.VTOperationDetailB.Count() > 0)
+                            {
+                                {
+                                    foreach (var item in model.VTOperationDetailB)
+                                    {
+                                        item.PointId = servicePoint.PointId;
+                                        item.ReportId = reportId;
+                                        item.Status = 1;
+                                        item.CreateUser = userId;
+                                        businessEquipmentVTOperationDetail.EditEquipmentVT_OperationDetail(item, db);
+                                    }
+                                }
+                            }
+                            #endregion
+
+                            #region -- Save thông tin TI
+                            // Save thông tin đã tháo --- bỏ lại có thể là không cần thiết.
+                            //Save lại tỷ số đấu đang treo
+                            if (model.CTOperationDetailB != null && model.CTOperationDetailB.Count() > 0)
+                            {
+                                {
+                                    foreach (var item in model.CTOperationDetailB)
+                                    {
+                                        item.PointId = servicePoint.PointId;
+                                        item.ReportId = reportId;
+                                        item.Status = 1;
+                                        item.CreateUser = userId;
+                                        businessEquipmentCTOperationDetail.EditEquipmentCT_OperationDetail(item, db);
+                                    }
+                                }
+                            }
+                            #endregion
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+        #endregion
     }
 }
