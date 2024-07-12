@@ -229,6 +229,7 @@
     <Compile Include="Commons\HttpResponseMessageBase.cs" />
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
+    <Compile Include="Controllers\ChiSo\IndexController.cs" />
     <Compile Include="Controllers\CongTo\CurrentTransformerController.cs" />
     <Compile Include="Controllers\CongTo\ElectricMeterController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_CurrentTransformerTypeController.cs" />
@@ -245,6 +246,7 @@
     <Compile Include="Controllers\DanhMuc\Category_TeamController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_TestingDepartmentController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_VoltageTransformerTypeController.cs" />
+    <Compile Include="Controllers\Hilo\HiloController.cs" />
     <Compile Include="Controllers\HoaDon\BillController.cs" />
     <Compile Include="Controllers\HoaDon\ConvertBillController.cs" />
     <Compile Include="Controllers\HoaDon\EditBillTaxInvoiceController.cs" />
@@ -262,9 +264,11 @@
     <Compile Include="Helpers\CommonDefault.cs" />
     <Compile Include="Helpers\TokenHelper.cs" />
     <Compile Include="Models\ChangePriceModel.cs" />
+    <Compile Include="Models\ChiSo\Index_CalendarOfSaveIndexManagerInput.cs" />
     <Compile Include="Models\CongTo\InsertEquipmentMT_ElectricityMeterDto.cs" />
     <Compile Include="Models\CongTo\LiquidationMeterInput.cs" />
     <Compile Include="Models\EnumMethods\EnumMethod.cs" />
+    <Compile Include="Models\Hilo\ErrorBillHilo.cs" />
     <Compile Include="Models\HoaDon\ElectricityBillCalculatorInput.cs" />
     <Compile Include="Models\HopDong\ContractExtendedInfoModel.cs" />
     <Compile Include="Models\HopDong\ContractLiquidationInput.cs" />
