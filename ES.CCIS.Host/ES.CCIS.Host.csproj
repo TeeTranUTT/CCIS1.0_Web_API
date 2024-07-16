@@ -248,6 +248,7 @@
     <Compile Include="Controllers\DanhMuc\Category_VoltageTransformerTypeController.cs" />
     <Compile Include="Controllers\Hilo\HiloController.cs" />
     <Compile Include="Controllers\HoaDon\BillController.cs" />
+    <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesController.cs" />
     <Compile Include="Controllers\HoaDon\ConvertBillController.cs" />
     <Compile Include="Controllers\HoaDon\EditBillTaxInvoiceController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
@@ -269,6 +270,7 @@
     <Compile Include="Models\CongTo\LiquidationMeterInput.cs" />
     <Compile Include="Models\EnumMethods\EnumMethod.cs" />
     <Compile Include="Models\Hilo\ErrorBillHilo.cs" />
+    <Compile Include="Models\HoaDon\CongNo\LiabilitiesManager_ByCustomerIdInput.cs" />
     <Compile Include="Models\HoaDon\ElectricityBillCalculatorInput.cs" />
     <Compile Include="Models\HopDong\ContractExtendedInfoModel.cs" />
     <Compile Include="Models\HopDong\ContractLiquidationInput.cs" />

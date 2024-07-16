@@ -121,5 +121,24 @@ namespace ES.CCIS.Host.Models.EnumMethods
             public static List<string> ListId => typeof(NganhNghe).GetAllPublicConstantValues<string>();
             public static List<KeyValuePair<string, string>> ListKeyValue => ListId.Select(p => new KeyValuePair<string, string>(p, GetString(p))).ToList();
         }
+
+        public partial class LoaiHoaDon
+        {
+            public const string TienDien = "TD";
+            public const string GTGT = "GT";
+            public const string PhanKhang = "VC";
+            public static string GetString(string id)
+            {
+                switch (id)
+                {
+                    case TienDien: return "Tiền điện";
+                    case GTGT: return "Dịch vụ khác";
+                    case PhanKhang: return "Phản kháng";
+                    default: return "Không xác định";
+                }
+            }
+            public static List<string> ListId => typeof(LoaiHoaDon).GetAllPublicConstantValues<string>();
+            public static List<KeyValuePair<string, string>> ListKeyValue => ListId.Select(p => new KeyValuePair<string, string>(p, GetString(p))).ToList();
+        }
     }
 }

@@ -3,8 +3,10 @@ using CCIS_BusinessLogic.Models;
 using CCIS_DataAccess;
 using ES.CCIS.Host.Helpers;
 using ES.CCIS.Host.Models;
+using ES.CCIS.Host.Models.ChiSo;
 using ES.CCIS.Host.Models.EnumMethods;
 using Microsoft.Ajax.Utilities;
+using Newtonsoft.Json;
 using PagedList;
 using System;
 using System.Collections.Generic;
@@ -2636,6 +2638,706 @@ namespace ES.CCIS.Host.Controllers.ChiSo
             public List<Concus_CustomerModel_Index_ValueModel> LstData { get; set; }
         }
         #endregion
+
+        //Chốt chỉ số chuyển lộ
+        [HttpGet]
+        [Route("Update_Route")]
+        public HttpResponseMessage Update_Route(int pointId)
+        {
+            try
+            {
+                Update_RouteModel response = new Update_RouteModel();
+                using (var db = new CCISContext())
+                {
+                    //Thông tin chỉ số mới nhất
+                    var lastIndex = db.Index_Value.Where(item => item.PointId == pointId).OrderByDescending(item => item.IndexId).FirstOrDefault();
+                    var listIndex = db.Index_Value.Where(item => item.PointId == lastIndex.PointId && item.Term == lastIndex.Term && item.Month == lastIndex.Month
+                       && item.Year == lastIndex.Year && item.IndexType == lastIndex.IndexType).ToList();
+
+                    try
+                    {
+                        var changeId = db.Loss_ChangeRoute.Where(item => item.PointId == pointId).OrderByDescending(item => item.Id).Select(item => item.Id).FirstOrDefault();
+                        var listIndex1 = (from p in db.Loss_Index
+                                          join c in db.Loss_ChangeRoute on p.ChangeId equals c.Id
+                                          where c.PointId == pointId && p.Term == c.Term && p.Month == lastIndex.Month
+                                          && p.Year == lastIndex.Year && p.StartDate >= lastIndex.StartDate && p.ChangeId == changeId
+                                          select new Index_ValueModel
+                                          {
+                                              TimeOfUse = p.TimeOfUse,
+                                              IndexId = p.IndexId,
+                                              Month = p.Month,
+                                              PointId = c.PointId,
+                                              Term = c.Term,
+                                              Year = c.Year,
+                                              NewValue = p.NewValue,
+                                              OldValue = p.OldValue,
+                                              StartDate = p.StartDate,
+                                              EndDate = p.EndDate,
+                                              Coefficient = p.Coefficient
+                                          }).ToList();
+
+                        var startDate1 = listIndex.Select(item => item.StartDate).FirstOrDefault();
+
+                        var startDate2 = listIndex1.Select(item => item.StartDate).FirstOrDefault();
+
+                        if (startDate1 > startDate2 || startDate2 == null)
+                        {
+                            response.ListIndex = listIndex;
+                        }
+                        else
+                        {
+                            response.ListIndexValue = listIndex1;
+                        }
+                    }
+                    catch
+                    {
+                        response.ListIndex = listIndex;
+                    }
+
+                    var model = db.Concus_ServicePoint.Where(item => item.PointId == pointId)
+                           .Select(item => new Concus_ServicePointModel
+                           {
+                               PointId = item.PointId,
+                               PointCode = item.PointCode,
+                               DepartmentId = item.DepartmentId,
+                               Address = item.Address,
+                               PotentialCode = item.PotentialCode,
+                               ReactivePower = item.ReactivePower,
+                               Power = item.Power,
+                               NumberOfPhases = item.NumberOfPhases,
+                               ActiveDate = item.ActiveDate,
+                               Status = item.Status,
+                               CreateDate = item.CreateDate,
+                               CreateUser = item.CreateUser,
+                               HouseholdNumber = item.HouseholdNumber,
+                               StationId = item.StationId,
+                               RouteId = item.RouteId,
+                               TeamId = item.TeamId,
+                               BoxNumber = item.BoxNumber,
+                               PillarNumber = item.PillarNumber,
+                               FigureBookId = item.FigureBookId,
+                               Index = item.Index,
+                               ServicePointType = item.ServicePointType,
+                               GroupReactivePower = item.GroupReactivePower,
+                               PrimaryPointId = item.PrimaryPointId,
+                               RegionId = item.RegionId
+                           }).FirstOrDefault();
+
+                    response.ServicePoint = model;
+                }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("Update_Route")]
+        public HttpResponseMessage Update_Route(Update_RouteInput input)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    using (var dbContextTransaction = db.Database.BeginTransaction())
+                    {
+                        if (Request != null)
+                        {
+                            Loss_ChangeRoute modelChangeRoute = new Loss_ChangeRoute();
+                            modelChangeRoute.PointId = input.ServicePointModel.PointId;
+                            modelChangeRoute.OldRoute = (int)input.ServicePointModel.RouteId;
+                            modelChangeRoute.NewRoute = input.NewRouteId;
+                            modelChangeRoute.Date = input.DateChange;
+                            modelChangeRoute.Term = input.Term;
+                            modelChangeRoute.Month = input.SaveDate.Month;
+                            modelChangeRoute.Year = input.SaveDate.Year;
+                            db.Loss_ChangeRoute.Add(modelChangeRoute);
+                            db.SaveChanges();
+
+                            foreach (var item in input.ListIndex)
+                            {
+                                Loss_Index modelIndex = new Loss_Index();
+                                modelIndex.ChangeId = modelChangeRoute.Id;
+                                modelIndex.TimeOfUse = item.TimeOfUse;
+                                modelIndex.OldValue = item.OldValue;
+                                modelIndex.NewValue = item.NewValue;
+                                modelIndex.StartDate = item.StartDate.Value.AddDays(1);
+                                modelIndex.EndDate = input.DateChange;
+                                modelIndex.Term = input.Term;
+                                modelIndex.Month = input.SaveDate.Month;
+                                modelIndex.Year = input.SaveDate.Year;
+                                modelIndex.Coefficient = item.Coefficient;
+                                db.Loss_Index.Add(modelIndex);
+                                db.SaveChanges();
+                            }
+
+                            //Chuyển thêm các phần chỉ số kỳ trước sang
+                            var listOldIndex = db.Index_Value.Where(item => item.PointId == input.ServicePointModel.PointId && item.Year == input.SaveDate.Year && item.Month == input.SaveDate.Month && item.EndDate <= input.DateChange).ToList();
+                            if (listOldIndex.Count > 0)
+                            {
+                                foreach (var item in listOldIndex)
+                                {
+                                    Loss_Index modelIndex = new Loss_Index();
+                                    modelIndex.ChangeId = modelChangeRoute.Id;
+                                    modelIndex.TimeOfUse = item.TimeOfUse;
+                                    modelIndex.OldValue = item.OldValue;
+                                    modelIndex.NewValue = item.NewValue;
+                                    modelIndex.StartDate = (DateTime)item.StartDate;
+                                    modelIndex.EndDate = (DateTime)item.EndDate;
+                                    modelIndex.Term = item.Term;
+                                    modelIndex.Month = item.Month;
+                                    modelIndex.Year = item.Year;
+                                    modelIndex.Coefficient = item.Coefficient;
+                                    db.Loss_Index.Add(modelIndex);
+                                }
+                            }
+
+                            var target = db.Concus_ServicePoint.Where(item => item.PointId == input.ServicePointModel.PointId).FirstOrDefault();
+                            target.RouteId = input.NewRouteId;
+
+                            db.SaveChanges();
+                            dbContextTransaction.Commit();
+
+                            respone.Status = 1;
+                            respone.Message = "Chuyển lộ thành công.";
+                            respone.Data = target.RouteId;
+                            return createResponse();
+                        }
+                        else
+                        {
+                            dbContextTransaction.Rollback();
+                            throw new ArgumentException("Chuyển lộ không thành công.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("AddIndex_ValueJS")]
+        public HttpResponseMessage AddIndex_ValueJS(DateTime? saveDate, [DefaultValue(0)] int Term, [DefaultValue(0)] int FigureBookId)
+        {
+            try
+            {
+                var model = new AddIndex_ValueJSModel();
+                List<Concus_CustomerModel_Index_ValueModelDTO> list = new List<Concus_CustomerModel_Index_ValueModelDTO>();
+
+                using (var db = new CCISContext())
+                {
+                    if (saveDate == null)
+                        saveDate = DateTime.Now;
+                    if (Term == 0)
+                        Term = 1;
+                    if (FigureBookId == 0)
+                        FigureBookId = db.Category_FigureBook.Select(item => item.FigureBookId).FirstOrDefault();
+
+                    model.HandOnTableHeader = new List<string> { "STT", "TT SGCS", "Mã điểm đo", "Tên khách hàng", "Địa chỉ KH", "Số công tơ", "Địa chỉ điểm đo", "Bộ chỉ số", "Chỉ số cũ", "Chỉ số mới", "SL +/-", "HSN", "Sản lượng" };
+
+                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                    int Month = saveDate.Value.Month;
+                    int Year = saveDate.Value.Year;
+                    int preMonth = saveDate.Value.AddMonths(-1).Month;
+                    int preYear = saveDate.Value.AddMonths(-1).Year;
+
+
+                    //lấy các thông tin chung
+                    var v_FigureBookInfos = db.Category_FigureBook.Where(item => item.FigureBookId.Equals(FigureBookId)).FirstOrDefault();
+
+                    // lấy ra ngày của kỳ ghi chỉ số
+                    var indexCalendarOfSaveIndex = db.Index_CalendarOfSaveIndex
+                        .Where(item => item.FigureBookId.Equals(FigureBookId) && item.Term.Equals(Term) &&
+                                       item.Month.Equals(saveDate.Value.Month) &&
+                                       item.Year.Equals(saveDate.Value.Year)).FirstOrDefault();
+                    if (indexCalendarOfSaveIndex == null)
+                    {
+                        throw new ArgumentException($"Bạn chưa lập lịch cho tháng {Month}/{Year} sổ này vui lòng kiểm tra lại");
+                    }
+                    if (v_FigureBookInfos.PeriodNumber >= Term)
+                    {
+                        //Debug.WriteLine("Tesst");
+                        //db.Database.Log = s => Debug.WriteLine(s);
+                        // danh sách người dùng lấy theo sổ ghi chỉ số, ứng với 
+                        List<Customer_STimeOfUse> dsKhachHangBcs = new List<Customer_STimeOfUse>();
+
+                        List<Concus_ServicePointModel> ListDS = new List<Concus_ServicePointModel>();
+                        List<IndexServicePointContractModel> listServicePoints = new List<IndexServicePointContractModel>();
+                        // lấy ra danh sash điểm đo
+                        if (v_FigureBookInfos.IsRootBook)
+                        {
+                            listServicePoints = (from servicePoint in db.Concus_ServicePoint
+                                                 where servicePoint.DepartmentId == v_FigureBookInfos.DepartmentId && servicePoint.FigureBookId == FigureBookId && servicePoint.Status == true
+                                                 select new IndexServicePointContractModel
+                                                 {
+                                                     Concus_ServicePoint = servicePoint,
+                                                     CustomerId = 0
+                                                 }
+                                           ).OrderBy(item => item.Concus_ServicePoint.Index).ToList();
+
+                            ListDS = listServicePoints.OrderBy(item => item.Concus_ServicePoint.Index).Where(item => item.Concus_ServicePoint.FigureBookId.Equals(FigureBookId) && item.Concus_ServicePoint.Status == true).Select(item => new Concus_ServicePointModel
+                            {
+                                ServicePointType = item.Concus_ServicePoint.ServicePointType,
+
+                                ContractId = item.Concus_ServicePoint.ContractId,
+                                PointId = item.Concus_ServicePoint.PointId,
+                                Index = item.Concus_ServicePoint.Index,
+                                Address = item.Concus_ServicePoint.Address,
+                                CustomerId = 0
+                            }).OrderBy(item => item.Address).ToList();
+                        }
+                        else
+                        {
+                            listServicePoints = (from servicePoint in db.Concus_ServicePoint
+                                                 join contract in db.Concus_Contract on servicePoint.ContractId equals contract.ContractId
+                                                 where servicePoint.DepartmentId == v_FigureBookInfos.DepartmentId && servicePoint.FigureBookId == FigureBookId && servicePoint.Status == true
+                                                 select new IndexServicePointContractModel
+                                                 {
+                                                     Concus_ServicePoint = servicePoint,
+                                                     CustomerId = contract.CustomerId
+                                                 }
+                                 ).OrderBy(item => item.Concus_ServicePoint.Index).ToList();
+                            ListDS = listServicePoints.OrderBy(item => item.Concus_ServicePoint.Index).Where(item => item.Concus_ServicePoint.FigureBookId.Equals(FigureBookId) && item.Concus_ServicePoint.Status == true).Select(item => new Concus_ServicePointModel
+                            {
+                                ServicePointType = item.Concus_ServicePoint.ServicePointType,
+                                ContractId = item.Concus_ServicePoint.ContractId,
+                                PointId = item.Concus_ServicePoint.PointId,
+                                Index = item.Concus_ServicePoint.Index,
+                                Address = item.Concus_ServicePoint.Address,
+                                CustomerId = item.CustomerId
+                            }).OrderBy(item => item.Address).ToList();
+                        }
+
+                        if (listServicePoints.Count == 0)
+                        {
+                            throw new ArgumentException("Sổ này chưa có điểm đo nào vui lòng kiểm tra lại.");
+                        }
+
+                        //  lấy ra danh sách hợp đồng, điểm đo, khách hàng để phục vụ tạo ds bên dưới
+                        #region lấy ra danh sách hợp đồng, điểm đo, khách hàng để phục vụ tạo ds bên dưới
+                        var listPointID = ListDS.Select(i2 => i2.PointId).ToList();
+                        var listContractID = ListDS.Select(i2 => i2.ContractId).ToList();
+                        var listConcus_Contracts = db.Concus_Contract
+                                .Where(item => item.DepartmentId == v_FigureBookInfos.DepartmentId
+                                                && listContractID.Contains(item.ContractId)
+                                       ).ToList();
+                        var listCustomerID = listConcus_Contracts.Select(it3 => it3.CustomerId).ToList();
+                        var listCustomers = db.Concus_Customer.Where(it3 => it3.DepartmentId == v_FigureBookInfos.DepartmentId &&
+                                                listCustomerID.Contains(it3.CustomerId)).ToList();
+
+                        // Lấy chỉ số đã ghi lần cuối
+                        var currentDate = DateTime.Now;
+                        List<Index_Value> listIndexes = businessIndexValue.getListIndexValueLastRecordByServicePoint(db, listPointID, Month, Year, indexCalendarOfSaveIndex.DepartmentId, Term);
+                        var lstElectricityMeterId = (from operation in db.EquipmentMT_OperationDetail
+                                                     join electrictmeter in db.EquipmentMT_ElectricityMeter on operation.ElectricityMeterId equals electrictmeter.ElectricityMeterId
+                                                     join testing in db.EquipmentMT_Testing on electrictmeter.ElectricityMeterId equals testing.ElectricityMeterId
+                                                     where listPointID.Contains(operation.PointId)
+                                                     group new { operation, electrictmeter, testing } by operation.PointId into g
+                                                     select new
+                                                     {
+                                                         PointId = g.Key,
+                                                         Data = g.OrderByDescending(item => item.operation.DetailId).Select(item => new
+                                                         {
+                                                             item.operation.PointId,
+                                                             item.electrictmeter.ElectricityMeterId,
+                                                             item.electrictmeter.ElectricityMeterNumber,
+                                                             item.testing.TimeOfUse
+                                                         }).FirstOrDefault()
+                                                     }
+                                    ).Select(item => new
+                                    {
+                                        item.PointId,
+                                        item.Data.ElectricityMeterId,
+                                        item.Data.TimeOfUse,
+                                        item.Data.ElectricityMeterNumber
+                                    }).ToList();
+
+                        #endregion
+
+                        ListDS = ListDS.OrderBy(a => a.Index).ToList();
+                        for (var i = 0; i < ListDS.Count; i++)
+                        {
+
+                            int Index = Convert.ToInt32(ListDS[i].Index);
+                            int customerId = Convert.ToInt32(ListDS[i].CustomerId);
+                            int ContractId = Convert.ToInt32(ListDS[i].ContractId);
+                            string SPAddress = ListDS[i].Address;
+                            // check xem có điểm đo nào nằm trong hợp đồng đã thanh lý không, nếu đã thaanh lyus thì xóa ngay ra khỏi danh sách
+                            Concus_Contract concusContract;
+                            if (v_FigureBookInfos.IsRootBook)
+                            {
+                                concusContract = listConcus_Contracts
+                                .Where(item => item.ReasonId != null && item.ContractId.Equals(ContractId))
+                                .FirstOrDefault();
+                            }
+                            else
+                            {
+                                concusContract = listConcus_Contracts
+                                .Where(item => item.CustomerId.Equals(customerId) && item.ReasonId != null && item.ContractId.Equals(ContractId))
+                                .FirstOrDefault();
+                            }
+
+
+                            if ((indexCalendarOfSaveIndex != null && (concusContract != null && indexCalendarOfSaveIndex.StartDate > concusContract.CreateDate)) || indexCalendarOfSaveIndex == null)
+                            {
+                                // nếu ngày lịch ghi chỉ số lớn hơn ngày đã thanh lý thì không cho hiển thị điểm đo này nữa
+                            }
+                            else
+                            {
+                                int pointId = Convert.ToInt32(ListDS[i].PointId);
+
+                                var ElectricityMeter = lstElectricityMeterId.Where(item => item.PointId.Equals(pointId)).FirstOrDefault();
+
+
+                                if (ElectricityMeter != null && ElectricityMeter.TimeOfUse != null)
+                                {
+                                    string[] words = ElectricityMeter.TimeOfUse.Split(',');
+                                    for (var j = 0; j < words.Length; j++)
+                                    {
+                                        Customer_STimeOfUse rowlist = new Customer_STimeOfUse();
+                                        rowlist.CustomerId = customerId;
+                                        rowlist.TimeOfUse = words[j];
+                                        rowlist.PointId = pointId;
+                                        rowlist.Index = Index;
+                                        rowlist.Address = SPAddress;
+                                        rowlist.ElectricityMeterNumber = ElectricityMeter.ElectricityMeterNumber;
+                                        var ds = new List<Customer_STimeOfUse> { rowlist };
+                                        dsKhachHangBcs.AddRange(ds);
+                                    }
+                                }
+                            }
+                        }
+                        // thực hiện sắp sếp DistinctBy để tranh trùng lặp khi điểm đo thuôc loại có bộ KT
+                        // kiểm tra xem có chỉ số cuối của kỳ trước ứng với khách hàng có treo công tơ (DUP) + ghi chỉ số của kỳ trước
+                        for (var i = 0; i < dsKhachHangBcs.Count; i++)
+                        {
+                            int pointId = Convert.ToInt32(dsKhachHangBcs[i].PointId);
+                            string timeOfUse = Convert.ToString(dsKhachHangBcs[i].TimeOfUse);
+                            int customerId = Convert.ToInt32(dsKhachHangBcs[i].CustomerId);
+                            var getFirstIndexValue = listIndexes.OrderByDescending(item => item.IndexId).FirstOrDefault(item => item.PointId.Equals(pointId) && item.TimeOfUse == timeOfUse);
+
+                            if (getFirstIndexValue != null)
+                            {
+                                if (getFirstIndexValue.IndexType.Trim() == EnumMethod.LoaiChiSo.DDN)
+                                {
+                                    // trường hợp xem lại dữ liệu, nếu kỳ có DDK thì không được xóa
+                                    var indexValue = listIndexes.FirstOrDefault(item => item.Term.Equals(Term) && item.Month.Equals(Month) && item.Year.Equals(Year)
+                                                                              && item.PointId.Equals(pointId)
+                                                                              && (v_FigureBookInfos.IsRootBook || item.CustomerId.Equals(customerId))
+                                                                              && item.TimeOfUse == timeOfUse && item.IndexType == EnumMethod.LoaiChiSo.DDK);
+                                    if (indexValue == null)
+                                    {
+                                        dsKhachHangBcs.RemoveAt(i);
+                                        i = -1;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // nếu không có row nào thì xóa luôn điểm đo này khỏi kỳ ghi chỉ số tiếp theo
+                                dsKhachHangBcs.RemoveAt(i);
+                                i = -1;
+                            }
+                        }
+                        // lấy ra thông tin danh sách người dùng tương ứng khi thực hiện vòng lặp DSKhachHang_BCS
+
+                        for (var i = 0; i < dsKhachHangBcs.Count; i++)
+                        {
+                            //comment cột trong chức năng ghi chỉ số xuất file excel
+                            var indexOfList = i + 1;
+
+                            int Index = Convert.ToInt32(dsKhachHangBcs[i].Index);
+                            int pointId = Convert.ToInt32(dsKhachHangBcs[i].PointId);
+                            string timeOfUse = Convert.ToString(dsKhachHangBcs[i].TimeOfUse);
+                            int customerId = Convert.ToInt32(dsKhachHangBcs[i].CustomerId);
+                            //lấy số công tơ
+                            string electricityMeterNumber = Convert.ToString(dsKhachHangBcs[i].ElectricityMeterNumber);
+                            //lấy số công tơ
+
+                            string spAddress = dsKhachHangBcs[i].Address;
+                            Concus_CustomerModel concusCustomer;
+                            if (!v_FigureBookInfos.IsRootBook)
+                            {
+                                concusCustomer = listCustomers.Where(item => item.DepartmentId == v_FigureBookInfos.DepartmentId && item.CustomerId.Equals(customerId))
+                               .Select(item => new Concus_CustomerModel
+                               {
+                                   CustomerId = item.CustomerId,
+                                   CustomerCode = item.CustomerCode,
+                                   Name = item.Name,
+                                   Address = item.Address,
+                               }).FirstOrDefault();
+                            }
+                            else
+                            {
+                                concusCustomer = null;
+                            }
+
+                            var getFirstIndexValue = listIndexes.OrderByDescending(item => item.IndexId).FirstOrDefault(item => item.PointId.Equals(pointId) && item.TimeOfUse == timeOfUse);
+                            var indexValue =
+                                      listIndexes.Where(item => item.Term.Equals(Term) && item.Month.Equals(Month) && item.Year.Equals(Year)
+                                                                            && item.PointId.Equals(pointId)
+                                                                            && item.TimeOfUse == timeOfUse && item.IndexType == EnumMethod.LoaiChiSo.DDK).FirstOrDefault();
+
+                            #region check để insert vào list ghi chỉ số
+                            if (getFirstIndexValue != null)
+                            {
+                                Concus_CustomerModel_Index_ValueModelDTO rowDS = new Concus_CustomerModel_Index_ValueModelDTO();
+                                if (concusCustomer != null)
+                                {
+                                    rowDS.Name = concusCustomer.Name;
+                                    rowDS.CustomerId = customerId;
+                                    rowDS.Address = concusCustomer.Address;
+                                    rowDS.CustomerCode = concusCustomer.CustomerCode;
+                                }
+                                // <<TruongVM lấy số công tơ
+                                rowDS.ElectricityMeterNumber = electricityMeterNumber;
+                                // <<TruongVM lấy số công tơ>>
+                                rowDS.Term = Term;
+                                rowDS.Month = Month;
+                                rowDS.Year = Year;
+                                rowDS.SPAddress = spAddress;
+                                rowDS.TimeOfUse = timeOfUse;
+                                rowDS.FigureBookId = FigureBookId;
+                                rowDS.PointId = pointId;
+                                rowDS.Index = Index;
+                                rowDS.PointCode = (listServicePoints.Where(item => item.Concus_ServicePoint.PointId.Equals(pointId))
+                                        .Select(item => item.Concus_ServicePoint.PointCode).FirstOrDefault());
+
+                                if (indexValue != null)
+                                {
+                                    //  đã có dữ liệu kỳ hiện tại, lấy nguyên dòng dữ liệu ra
+                                    rowDS.NewValue = indexValue.NewValue;
+                                    rowDS.OldValue = indexValue.OldValue;
+                                    rowDS.Coefficient = indexValue.Coefficient;
+                                    rowDS.AdjustPower = indexValue.AdjustPower;
+                                }
+                                else
+                                {
+                                    // chưa có dữ liệu  kỳ hiện tại. lấy chỉ số cuối cùng của kỳ trước 
+                                    rowDS.OldValue = getFirstIndexValue.NewValue;
+                                    rowDS.Coefficient = getFirstIndexValue.Coefficient;
+                                    rowDS.AdjustPower = 0;
+                                }
+                                //comment cột trong chức năng ghi chỉ số xuất file excel
+                                rowDS.IndexOfList = indexOfList;
+
+                                list.Add(rowDS);
+                            }
+                            #endregion
+
+                        }
+                        // check trang thai hien thi form = 1 với 3 thì shown lên
+                        list.OrderBy(item => item.Index).ThenBy(item => item.PointId);
+                        model.HandOnTableObject = list;
+
+                    }
+                }
+                list.OrderBy(item => item.Index).ThenBy(item => item.PointId);
+                model.HandOnTableObject = list;
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+
+        [HttpPost]
+        [Route("SaveAddIndex_ValueJS")]
+        public HttpResponseMessage SaveAddIndex_ValueJS(List<Concus_CustomerModel_Index_ValueModelDTO> model)
+        {
+            int paraMonth = 0, paraYear = 0, paraTerm = 0, paraFigureBookId = 0;
+            using (var db = new CCISContext())
+            {
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    int idFigureBook = 0;
+                    int term = 0;
+                    int month = 0;
+                    int year = 0;
+                    int indexError = 0;
+                    string dataJsonError = "";
+                    try
+                    {
+                        for (int i = 0; i < model.Count; i++)
+                        {
+                            dataJsonError = JsonConvert.SerializeObject(model[i]);
+                            indexError = i;
+                            paraMonth = Convert.ToInt32(model[0].Month);
+                            paraYear = Convert.ToInt32(model[0].Year);
+                            paraTerm = Convert.ToInt32(model[0].Term);
+                            paraFigureBookId = Convert.ToInt32(model[0].FigureBookId);
+                            Concus_CustomerModel_Index_ValueModelDTO customer = model[i];
+                            //Kiểm tra chưa nhập chỉ số thì bỏ qua
+                            if (customer.OldValue != 0 && customer.NewValue == 0)
+                            {
+                                continue;
+                            }
+                            idFigureBook = customer.FigureBookId;
+                            term = customer.Term;
+                            year = customer.Year;
+                            month = customer.Month;
+                            Index_Value indexvalue = new Index_Value();
+                            // lấy ra ngày bắt đầu ghi sổ và ngày kết thúc ghi sổ trong sổ ghi chỉ số
+                            var time =
+                                db.Index_CalendarOfSaveIndex.Where(
+                                    item =>
+                                        item.FigureBookId.Equals(customer.FigureBookId) &&
+                                        item.Term.Equals(customer.Term) && item.Month.Equals(customer.Month)
+                                        && item.Year.Equals(customer.Year))
+                                    .Select(item => new Index_CalendarOfSaveIndexModel
+                                    {
+                                        StartDate = item.StartDate,
+                                        EndDate = item.EndDate,
+                                    }).ToList();
+                            Index_CalendarOfSaveIndexModel CalendarOfSaveIndex = new Index_CalendarOfSaveIndexModel();
+                            if (time.Count != 0)
+                            {
+                                CalendarOfSaveIndex = time.FirstOrDefault();
+                            }
+                            // lấy ra ElectricityMeterId
+                            var electricityMeterId =
+                                db.EquipmentMT_OperationDetail.OrderByDescending(item => item.DetailId).Where(
+                                    item => item.PointId.Equals(customer.PointId) && item.Status == 1)
+                                    .Select(item => item.ElectricityMeterId).FirstOrDefault();
+
+                            // lấy ra K_Multiplication, lấy ra dựa vào chỉ số cuối cùng của row treo hay ddk                                
+                            var coefficient = db.Index_Value.OrderByDescending(item => item.IndexId).Where(item => item.PointId.Equals(customer.PointId) && item.TimeOfUse == customer.TimeOfUse && item.CustomerId.Equals(customer.CustomerId))
+                                   .Select(item => item.Coefficient)
+                                   .FirstOrDefault();
+
+                            // lấy ra id don vị người trong sổ ghi chỉ số
+                            var DepartmentId =
+                                db.Category_FigureBook.Where(item => item.FigureBookId == paraFigureBookId).FirstOrDefault().DepartmentId;
+                            indexvalue.DepartmentId = DepartmentId;
+                            indexvalue.TimeOfUse = customer.TimeOfUse;
+                            indexvalue.Term = customer.Term;
+                            indexvalue.Month = customer.Month;
+                            indexvalue.Year = customer.Year;
+                            indexvalue.IndexType = EnumMethod.LoaiChiSo.DDK;
+                            indexvalue.OldValue = customer.OldValue;
+                            indexvalue.Coefficient = coefficient;
+                            indexvalue.AdjustPower = customer.AdjustPower;
+                            if (customer.NewValue < customer.OldValue)
+                            {
+                                // đoạn này đẩy chỉ số = -1 để đưa ra cảnh báo khi xác nhận
+                                indexvalue.NewValue = -1;
+                                // indexvalue.NewValue = customer.OldValue;
+                            }
+                            else
+                            {
+                                indexvalue.NewValue = customer.NewValue;
+                            }
+                            indexvalue.ElectricityIndex = ((indexvalue.NewValue - indexvalue.OldValue) * indexvalue.Coefficient) + indexvalue.AdjustPower;
+                            if (CalendarOfSaveIndex != null)
+                            {
+                                // check xem  có treo tháo trong kỳ không (DUP) và thay áp giá công to (CCS), nếu có thì phải lấy ngày bắt đầu = ngày bắt đầu treo , không thì lấy trong lịch ghi chỉ số
+                                var checkIndexType =
+                               db.Index_Value.OrderByDescending(item => item.IndexId).FirstOrDefault(item => item.PointId.Equals(customer.PointId) && item.TimeOfUse == customer.TimeOfUse &&
+                                                                                             item.CustomerId.Equals(customer.CustomerId));
+                                if (checkIndexType != null)
+                                {
+                                    if (checkIndexType.IndexType == EnumMethod.LoaiChiSo.DUP || checkIndexType.IndexType == EnumMethod.LoaiChiSo.CCS || checkIndexType.IndexType == EnumMethod.LoaiChiSo.CSC)
+                                    {
+                                        indexvalue.StartDate = checkIndexType.EndDate;
+                                    }
+                                    else
+                                    {
+                                        indexvalue.StartDate = CalendarOfSaveIndex.StartDate;
+                                    }
+                                }
+                                else
+                                {
+                                    indexvalue.StartDate = CalendarOfSaveIndex.StartDate;
+                                }
+
+                                indexvalue.EndDate = CalendarOfSaveIndex.EndDate;
+                            }
+                            indexvalue.CustomerId = customer.CustomerId;
+
+                            indexvalue.PointId = customer.PointId;
+                            indexvalue.CreateDate = DateTime.Now;
+                            indexvalue.ElectricityMeterId = electricityMeterId;
+                            indexvalue.CreateUser = TokenHelper.GetUserIdFromToken();
+
+                            // thực hiện insert hay update vào csdl
+                            // kiểm tra xem đã có row dữ liệu chưa, nếu có rồi là update
+                            bool check = CheckDataIndex_Value(customer.Term, customer.Month, customer.Year, customer.TimeOfUse, customer.CustomerId, customer.PointId, db);
+                            if (check == true)
+                            {
+                                // trước khi update phải check xem trạng thái sổ có = 1 hay 3 không, nếu khác thì không cho lưu lại
+                                var trangthaiFigureBookId =
+                                    db.Index_CalendarOfSaveIndex.Where(
+                                        item => item.FigureBookId.Equals(idFigureBook) && item.Term.Equals(term) &&
+                                                item.Month.Equals(month) && item.Year.Equals(year))
+                                        .FirstOrDefault();
+                                // update
+                                if (trangthaiFigureBookId != null && (trangthaiFigureBookId.Status == 1 || trangthaiFigureBookId.Status == 3))
+                                {
+                                    businessIndexValue.EditIndex_Value(indexvalue, db);
+                                }
+                                else
+                                {
+                                    Logger.Info($"Điều kiện ghi chỉ số sai của sổ {idFigureBook}");
+                                    goto Outer;
+                                }
+                            }
+                            else
+                            {
+                                businessIndexValue.AddIndex_Value(indexvalue, db);
+                            }
+                        }
+                        // khi xong hết quá trình ghi chỉ số trong sổ, thực hiện update status sổ lên 3
+                        Index_CalendarOfSaveIndexModel StatusCalendarOfSaveIndex = new Index_CalendarOfSaveIndexModel();
+                        StatusCalendarOfSaveIndex.Status = 3;
+                        StatusCalendarOfSaveIndex.Term = term;
+                        StatusCalendarOfSaveIndex.Month = month;
+                        StatusCalendarOfSaveIndex.Year = year;
+                        StatusCalendarOfSaveIndex.FigureBookId = idFigureBook;
+                        businessCalendarOfSaveIndex.UpdateStatus_CalendarOfSaveIndex(StatusCalendarOfSaveIndex, db);
+
+                        dbContextTransaction.Commit();
+                    Outer:
+                        respone.Status = 1;
+                        respone.Message = "Ghi chỉ số thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        respone.Status = 0;
+                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        
+        }
 
         #region Commons
         protected bool CheckDataIndex_Value(int Term, int Month, int Year, string TimeOfUse, int CustomerId, int PointId, CCISContext dbcheck)
