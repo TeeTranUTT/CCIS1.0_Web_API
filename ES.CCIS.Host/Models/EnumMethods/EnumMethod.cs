@@ -140,5 +140,53 @@ namespace ES.CCIS.Host.Models.EnumMethods
             public static List<string> ListId => typeof(LoaiHoaDon).GetAllPublicConstantValues<string>();
             public static List<KeyValuePair<string, string>> ListKeyValue => ListId.Select(p => new KeyValuePair<string, string>(p, GetString(p))).ToList();
         }
+
+        public partial class D_TinhChatHoaDon
+        {
+            public const string PhatSinh = "PS";
+            public const string HuyBo = "HB";
+            public const string LapLai = "LL";
+            public const string TruyThu = "TT";
+            public const string ThoaiHoan = "TH";
+            public const string HuyBoKhongLapLai = "HBK";
+            public static string GetString(string id)
+            {
+                switch (id)
+                {
+                    case PhatSinh: return "Phát sinh";
+                    case HuyBo: return "Hủy bỏ";
+                    case LapLai: return "Lập lại";
+                    case TruyThu: return "Truy thu";
+                    case ThoaiHoan: return "Thoái hoàn";
+                    case HuyBoKhongLapLai: return "Hủy bỏ không lập lại";
+                    default: return "Không xác định";
+                }
+            }
+            public static List<string> ListId => typeof(D_TinhChatHoaDon).GetAllPublicConstantValues<string>();
+            public static List<KeyValuePair<string, string>> ListKeyValue => ListId.Select(p => new KeyValuePair<string, string>(p, GetString(p))).ToList();
+            
+        }
+
+        [Flags]
+        public enum StatusTrackDebt
+        {
+            // giá trị trường Status trong bảng Liabilities_TrackDebt
+            Unpaid = 0, // chưa thanh toán
+            Paid = 1, //Đã thanh toán
+            Cancel = 2,//Hóa đơn đã hủy bỏ, chưa có lập lai
+            Restore = 3,// hóa đơn hủy bỏ đã được khôi phục bằng hóa đơn khác
+        }
+
+        [Flags]
+        public enum StatusCalendarOfSaveIndex
+        {
+            CreateCalendar = 1, // lập lịch ghi chỉ số
+            Gcs = 3, //GCS
+            ConfirmGcs = 5,//Xác nhận số liệu ghi chỉ số
+            Bill = 7,// tính hóa đơn
+            ConfirmData = 9, //Xác nhận số liệu , xác nhận để chuyển hóa đơn tính ra sang dạng xml để chuẩn bị ký hóa đơn điện tử
+            SigningBill = 10, //Trạng thái tồn tại trong thời gian rất ngắn, khi đang ký. Nếu select thấy giá trị này có nghĩa là sổ đang ký bị lỗi
+            SignedandReleased = 11// Đã ký hóa đơn điện tử, chuyển sang công nợ, phát hành hóa đơn
+        }
     }
 }

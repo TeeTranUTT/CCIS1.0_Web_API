@@ -249,12 +249,14 @@
     <Compile Include="Controllers\Hilo\HiloController.cs" />
     <Compile Include="Controllers\HoaDon\BillController.cs" />
     <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesController.cs" />
+    <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesTransController.cs" />
     <Compile Include="Controllers\HoaDon\ConvertBillController.cs" />
     <Compile Include="Controllers\HoaDon\EditBillTaxInvoiceController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\Concus_ContractController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\Concus_CustomerController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\ServicePointController.cs" />
+    <Compile Include="Controllers\RegistrationController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Controllers\XacThucController.cs" />
     <Compile Include="Filters\InitializeAdministratorAttribute.cs" />
@@ -333,6 +335,7 @@
   <ItemGroup>
     <Folder Include="App_Data\" />
     <Folder Include="Views\Category_FigureBook\" />
+    <Folder Include="Views\LiabilitiesTrans\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="fonts\glyphicons-halflings-regular.woff2" />

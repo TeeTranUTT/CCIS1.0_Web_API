@@ -1,27 +1,28 @@
 ﻿using CCIS_BusinessLogic;
 using CCIS_DataAccess;
 using ES.CCIS.Host.Helpers;
-using ES.CCIS.Host.Models;
 using ES.CCIS.Host.Models.EnumMethods;
 using ES.CCIS.Host.Models.HoaDon.CongNo;
 using Hangfire;
-using PagedList;
+using Microsoft.Ajax.Utilities;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Net.Http;
 using System.Web.Configuration;
 using System.Web.Http;
 using static CCIS_BusinessLogic.DefaultBusinessValue;
+using static ES.CCIS.Host.Models.EnumMethods.EnumMethod;
+using System.Globalization;
 
 namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
 {
     [Authorize]
     [RoutePrefix("api/Liabilities")]
     public class LiabilitiesController : ApiBaseController
-    {
-        private int PageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
+    {        
         private readonly Business_Index_CalendarOfSaveIndex Index_CalendarOfSaveIndex = new Business_Index_CalendarOfSaveIndex();
         private readonly Business_Bill_ElectronicBill BusiElectronicBill = new Business_Bill_ElectronicBill();
         private readonly Business_Administrator_Parameter vParameters = new Business_Administrator_Parameter();
@@ -31,6 +32,8 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
         private readonly Business_Liabilities_ExcessMoney_Log ExcessMoneyLog = new Business_Liabilities_ExcessMoney_Log();
         private readonly Business_Liabilities_DebitBalance_TaxInvoice TaxInvoice = new Business_Liabilities_DebitBalance_TaxInvoice();
         private readonly Business_Liabilities_ExcessMoney_TaxInvoice_Log ExcessMoney_TaxInvoiceLog = new Business_Liabilities_ExcessMoney_TaxInvoice_Log();
+        private readonly Business_Liabilities_JobLatch saveJobLatch = new Business_Liabilities_JobLatch();
+        private readonly Liabilities_ExcessMoney ExcessMoney = new Liabilities_ExcessMoney();
 
         //Xác nhận số liệu hóa đơn
         [HttpGet]
@@ -1045,7 +1048,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                     if (Liabilities_JobLatch != 0)  //trong tháng hoạch toán -> cho xóa
                     {
                         // Lấy dòng hóa đơn cần hủy
-                        var liabilitiesTrackDebt = db.Liabilities_TrackDebt.FirstOrDefault(item => item.DepartmentId == listLiabilities.DepartmentId                            
+                        var liabilitiesTrackDebt = db.Liabilities_TrackDebt.FirstOrDefault(item => item.DepartmentId == listLiabilities.DepartmentId
                             && item.LiabilitiesId == listLiabilities.LiabilitiesId && item.BillId.Equals(listLiabilities.BillId));
 
                         if (listLiabilities != null && liabilitiesTrackDebt != null)
@@ -1057,7 +1060,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                                     //Trả lại 2 cột tiền nợ , thuế nợ trước đây
                                     liabilitiesTrackDebt.Debt += listLiabilities.DeptPay;
                                     liabilitiesTrackDebt.TaxDebt += listLiabilities.TaxPay;
-                                    liabilitiesTrackDebt.Status = 0;                                    
+                                    liabilitiesTrackDebt.Status = 0;
 
                                     //Kiểm tra xem có liên quan tiền thừa hay không?
                                     var lstExcessMoneyLog = db.Liabilities_ExcessMoney_Log.FirstOrDefault(item => item.BillId.Equals(listLiabilities.BillId)
@@ -1078,7 +1081,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                                         db.Liabilities_ExcessMoney_Log.Remove(lstExcessMoneyLog);
                                         db.SaveChanges();
                                     }
-                                    
+
                                     //xóa dòng log đã thêm gần đây nhất đi
                                     db.Liabilities_TrackDebt_Log.Remove(listLiabilities);
                                     db.SaveChanges();
@@ -1139,7 +1142,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                 decimal TongTien = 0;
 
                 if (saveDate == null)
-                    saveDate = DateTime.Now;                
+                    saveDate = DateTime.Now;
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
                 var lstDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
 
@@ -1148,7 +1151,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                     AllTaxInvoiceCancellation(TongKH, TongTien, allList, db, Name.Trim(), saveDate, FigureBookId);
                     allList = allList.OrderBy(p => p.CustomerId).ToList();
                 }
-                
+
                 respone.Status = 1;
                 respone.Message = "OK";
                 respone.Data = allList;
@@ -1329,6 +1332,954 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
         }
         #endregion
 
+        #region Xác nhận nợ hàng tháng
+        [HttpPost]
+        [Route("SaveMonthlyDebtConfirmation")]
+        public HttpResponseMessage SaveMonthlyDebtConfirmation(int departmentId)
+        {
+            try
+            {
+                Liabilities_JobLatchModel model = new Liabilities_JobLatchModel();
+                List<Liabilities_DebitBalance_TaxInvoiceModel> Liabilities_TaxInvoiceModel = new List<Liabilities_DebitBalance_TaxInvoiceModel>();
+                List<Liabilities_DebitBalanceModel> ListDebitBalanceModel = new List<Liabilities_DebitBalanceModel>();
+                List<Liabilities_DebitBalance> listDebitBalance = new List<Liabilities_DebitBalance>();
+                List<Liabilities_DebitBalance_TaxInvoice> debitBalanceTaxInvoice = new List<Liabilities_DebitBalance_TaxInvoice>();
+                bool trangthai = true;
+
+                using (var db = new CCISContext())
+                {
+                    #region Xác định tháng/năm trước/sau
+                    var liabilitiesJobLatch = db.Liabilities_JobLatch
+                        .Where(item => item.DepartmentId.Equals(departmentId)).ToList().FirstOrDefault();
+                    int month = liabilitiesJobLatch.Month;
+                    int year = liabilitiesJobLatch.Year;
+                    int month_next = 0;
+                    int year_next = 0;
+                    if (month == 12)
+                    {
+                        month_next = 1;
+                        year_next = year + 1;
+                    }
+                    else
+                    {
+                        month_next = month + 1;
+                        year_next = year;
+                    }
+                    #endregion
+
+                    #region 1 - Kiểm tra các điều kiện chuyển sổ
+                    //Lấy danh sách sổ đầu nguồn
+                    var lstRootBook = db.Category_FigureBook.Where(x => x.IsRootBook == true && x.DepartmentId == departmentId).Select(x => x.FigureBookId).ToList();
+
+                    //1-check có sổ nào chưa ký hóa đơn hay không nếu chưa ký không cho chuyển tháng
+                    var listFigureBook = db.Index_CalendarOfSaveIndex.Where(item => item.Status < 11 && item.Status > 1 && item.Month == month && item.Year == year
+                                                                        && item.DepartmentId == departmentId && !lstRootBook.Contains(item.FigureBookId)).FirstOrDefault();
+
+                    if (listFigureBook != null)
+                    {
+                        var soKhongCoHoaDon = db.Liabilities_TrackDebt.Any(item => listFigureBook.FigureBookId == item.FigureBookId && item.Month == month && item.Year == year);
+                        if (soKhongCoHoaDon)
+                        {
+                            trangthai = false;
+                            var strSo = db.Category_FigureBook.Where(o => o.DepartmentId == departmentId && o.FigureBookId == listFigureBook.FigureBookId).FirstOrDefault();
+
+                            respone.Status = 0;
+                            respone.Message = $"Chuyển tháng công nợ không thành công - Tồn tại sổ chưa ký hóa đơn (Sổ: {strSo.BookCode}, kỳ: {listFigureBook.Term.ToString()})";
+                            respone.Data = trangthai;
+                            return createResponse();
+                        }
+                    }
+
+                    //2-Hóa đơn điều chỉnh (nếu có, trừ hóa đơn hủy bỏ - Type = HB -) thì phải đã được ký
+                    var listBillAdjustment = db.Bill_ElectricityBillAdjustment
+                                            .Where(x => x.AdjustmentType != EnumMethod.D_TinhChatHoaDon.HuyBo && x.DepartmentId == departmentId && x.Status == 0 && x.Month == month && x.Year == year)
+                                            .FirstOrDefault();
+
+                    if (listBillAdjustment != null)
+                    {
+                        trangthai = false;
+
+                        respone.Status = 0;
+                        respone.Message = $"Chuyển tháng công nợ không thành công - Tồn tại hóa đơn điều chỉnh chưa ký (Mã KH: {listBillAdjustment.CustomerCode})";
+                        respone.Data = trangthai;
+                        return createResponse();
+                    }
+                    #endregion
+
+                    #region 2 - Tổng hợp báo cáo và chuyển dữ liệu
+                    db.Database.SqlQuery<List<int>>("[dbo].[SaveMonthlyDebtConfirmation] @departmentId, @month, @year", new SqlParameter("departmentId", departmentId), new SqlParameter("month", month), new SqlParameter("year", year))
+                               .FirstOrDefault();
+
+                    #endregion
+
+                    #region 3 - Cập nhật tháng làm việc mới
+                    model.Month = month_next;
+                    model.Year = year_next;
+                    model.DepartmentId = departmentId;
+                    saveJobLatch.UpdateLiabilities_JobLatch(db, model);
+
+                    respone.Status = 1;
+                    respone.Message = "Chuyển tháng công nợ thành công";
+                    respone.Data = true;
+                    return createResponse();
+                    #endregion
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Chuyển tháng công nợ không thành công => {ex.Message.ToString()}";
+                respone.Data = false;
+                return createResponse();
+            }
+        }
+        #endregion
+
+        #region Check thời gian chọn xóa nợ
+        [HttpPost]
+        [Route("CheckTime_MonthOfDebt")]
+        public HttpResponseMessage CheckTime_MonthOfDebt(string testingDate)
+        {
+            try
+            {
+                string thoigian = "";
+                DateTime time;
+                DateTime.TryParseExact(testingDate, "dd-MM-yyyy",
+                   System.Globalization.CultureInfo.InvariantCulture,
+                   System.Globalization.DateTimeStyles.None, out time);
+
+                // lấy tháng công nợ hiện tại
+                using (var db = new CCISContext())
+                {
+                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                    var thangcongno = db.Liabilities_JobLatch.Where(item => item.DepartmentId.Equals(departmentId)).FirstOrDefault();
+                    if (thangcongno != null)
+                    {
+                        if (thangcongno.Month == time.Month && thangcongno.Year == time.Year)
+                        {
+                            // đang nằm trong tháng công nợ  nên được đi tiếp
+                            // check tiếp xem tháng này có nằm trong tháng hiện tại không
+                            if (DateTime.Now.Month == time.Month && DateTime.Now.Year == time.Year)
+                            {
+                                if (DateTime.Now.Month < time.Month)
+                                {
+                                    // nếu ngày chấm xóa nợ lớn hơn ngày trong tháng hiện tại => set = tháng hiện tại 
+                                    thoigian = DateTime.Now.ToString("dd-MM-yyyy");
+                                }
+                                else
+                                {
+                                    thoigian = testingDate;
+                                }
+                            }
+                            else
+                            {
+                                thoigian = testingDate;
+                            }
+
+                        }
+                        else
+                        {
+                            thoigian = "01-" + thangcongno.Month + "-" + thangcongno.Year;
+                        }
+                    }
+
+                    else
+                    {
+                        thoigian = DateTime.Now.ToString("dd-MM-yyyy");
+                    }
+                }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = thoigian;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+        #endregion
+
+        [HttpGet]
+        [Route("Sms")]
+        public HttpResponseMessage Sms([DefaultValue(0)] int departmentId, [DefaultValue(0)] int Term, DateTime? saveDate, [DefaultValue(0)] int FigureBookId, [DefaultValue(0)] int smsvalue, string thongbao)
+        {
+            try
+            {
+                List<Sms> list = new List<Sms>();
+                using (var db = new CCISContext())
+                {
+                    if (saveDate == null)
+                        saveDate = DateTime.Now;
+                    //thông báo tiền điện thông thường (khi mới phát sinh hóa đơn)
+                    if (smsvalue == 0)
+                    {
+                        // thong bao tien dien
+                        var dskh = db.Bill_ElectricityBill
+                        .Where(item => item.FigureBookId == FigureBookId && item.Term == Term &&
+                                       item.Month == saveDate.Value.Month
+                                       && item.Year == saveDate.Value.Year).Select(item => new Sms
+                                       {
+                                           check = true,
+                                           CustomerId = item.CustomerId,
+                                           CustomerCode = item.CustomerCode,
+                                           BillId = item.BillId,
+                                           PhoneCustomerCare = item.Concus_Customer.PhoneCustomerCare,
+                                           Term = item.Term,
+                                           Month = item.Month,
+                                           Year = item.Year,
+                                           OldValue = (db.Index_Value.Where(a => a.CustomerId == item.CustomerId
+                                                && a.Month == item.Month && a.Year == item.Year
+                                                && a.IndexType == EnumMethod.LoaiChiSo.DDK)
+                                                .Select(a => a.OldValue)).FirstOrDefault(),
+                                           NewValue = (db.Index_Value.Where(a => a.CustomerId == item.CustomerId
+                                                && a.Month == item.Month && a.Year == item.Year
+                                                && a.IndexType == EnumMethod.LoaiChiSo.DDK)
+                                                .Select(a => a.NewValue)).FirstOrDefault(),
+                                           RealElectricityIndex = item.ElectricityIndex,
+                                           Total = item.Total
+                                       }).DistinctBy(item => item.CustomerId).ToList();
+                        dskh = dskh.Where(item => item.PhoneCustomerCare != "" && item.PhoneCustomerCare != null).ToList();
+                        list.AddRange(dskh);
+                    }
+                    else if (smsvalue == 1)
+                    //thông báo nợ tiền điện (khi nhắc nợ)
+                    {
+                        // thong bao tien dien
+                        var dskh = db.Liabilities_TrackDebt
+                        .Where(item => item.FigureBookId == FigureBookId && item.Term == Term &&
+                                       item.Month == saveDate.Value.Month && item.Year == saveDate.Value.Year
+                                       && item.Debt + item.TaxDebt > 0 && item.Status != (int)(StatusTrackDebt.Cancel))
+                                       .Select(item => new Sms
+                                       {
+                                           check = true,
+                                           CustomerId = item.CustomerId,
+                                           CustomerCode = item.CustomerCode,
+                                           BillId = item.BillId,
+                                           PhoneCustomerCare = (db.Concus_Customer.Where(a => a.CustomerId == item.CustomerId).Select(a => a.PhoneCustomerCare)).FirstOrDefault(),
+                                           Term = item.Term,
+                                           Month = item.Month,
+                                           Year = item.Year,
+                                           OldValue = (db.Index_Value.Where(a => a.CustomerId == item.CustomerId
+                                                && a.Month == item.Month && a.Year == item.Year
+                                                && a.IndexType == EnumMethod.LoaiChiSo.DDK)
+                                                .Select(a => a.OldValue)).FirstOrDefault(),
+                                           NewValue = (db.Index_Value.Where(a => a.CustomerId == item.CustomerId
+                                                && a.Month == item.Month && a.Year == item.Year
+                                                && a.IndexType == EnumMethod.LoaiChiSo.DDK)
+                                                .Select(a => a.NewValue)).FirstOrDefault(),
+                                           RealElectricityIndex = (db.Bill_ElectricityBill.Where(a => a.CustomerId == item.CustomerId && a.BillId == item.BillId).Select(a => a.ElectricityIndex)).FirstOrDefault(),
+                                           Total = item.Debt + item.TaxDebt
+                                       }).DistinctBy(item => item.CustomerId).ToList();
+                        dskh = dskh.Where(item => item.PhoneCustomerCare != "" && item.PhoneCustomerCare != null).ToList();
+                        list.AddRange(dskh);
+                    }
+                    else
+                    {
+                        // thong bao cat dien (lấy tất cả - để thông báo khi cắt điện có kế hoạch)                    
+                        var listContractid = db.Concus_ServicePoint.Where(item => item.FigureBookId == FigureBookId && item.Status == true && item.IsRootPoint == false).Select(i2 => i2.ContractId).ToList();
+                        if (listContractid != null)
+                        {
+                            var listCustomerId = db.Concus_Contract.Where(item => listContractid.Contains(item.ContractId)).Select(i2 => i2.CustomerId).ToList();
+                            list = db.Concus_Customer
+                                    .Where(item => listCustomerId.Contains(item.CustomerId) && item.PhoneCustomerCare != "" && item.PhoneCustomerCare != null)
+                                    .Select(item => new Sms
+                                    {
+                                        check = true,
+                                        CustomerId = item.CustomerId,
+                                        CustomerCode = item.CustomerCode,
+                                        PhoneCustomerCare = item.PhoneCustomerCare
+                                    }).ToList();
+                        }
+                    }
+                    list = list.OrderBy(a => a.CustomerCode).ToList();
+                }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = list;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+
+        #region ToDo chưa viết được vì chưa add được reference Servicesms
+        //[HttpPost]
+        //[Route("")]
+        //public HttpResponseMessage Sms_post(Sms_postInput input)
+        //{
+        //    try
+        //    {
+        //        //Cái này của VĨnh TUy nên chỉ để cho Vĩnh TUy chạy, tránh trường hợp các đơn vị khác cũng gửi
+        //        //Sau có thể phải chỉnh lại code chỗ này cho chuẩn hơn, có thể cấu hình được
+        //        //Lấy địa chỉ MAC máy chủ
+        //        string macAddr =
+        //                        (
+        //                            from nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+        //                            where nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up
+        //                            select nic.GetPhysicalAddress().ToString()
+        //                        ).FirstOrDefault();
+        //        if (macAddr.Equals("000C29CB40F8") == false)    //94188208DD18 Nếu không đúng là MAC của Vĩnh Tuy thì quit
+        //        {                   
+        //            throw new ArgumentException($"Địa chỉ Mac không khớp {macAddr} vui lòng kiểm tra lại Ethernet máy chủ để lấy địa chỉ Mac.");
+        //        }
+
+        //        CultureInfo cul = CultureInfo.GetCultureInfo("vi-VN");
+        //        if (input.SmsTypeId == 0)
+        //        {
+        //            #region nhắn tin thông báo phát sinh hóa đơn tiền điện
+        //            if (input.ListBillId != null)
+        //            {
+        //                using (var db = new CCISContext())
+        //                {
+        //                    for (int i = 0; i < input.ListBillId.Length; i++)
+        //                    {
+        //                        try
+        //                        {
+
+        //                            string phantu = input.ListBillId[i].ToString();
+        //                            string[] ad = phantu.Split(',');
+        //                            int Billid = Convert.ToInt32(ad[0]);// đây là billid
+        //                            int cusid = Convert.ToInt32(ad[1]);// đây là cus id
+
+        //                            var dskh = db.Bill_ElectricityBillDetail
+        //                              .Where(item => item.BillId == Billid).Select(item => new Sms
+        //                              {
+
+        //                                  check = true,
+        //                                  CustomerId = item.CustomerId,
+        //                                  CustomerCode = item.CustomerCode,
+        //                                  BillId = item.BillId,
+        //                                  PhoneCustomerCare = item.Concus_Customer.PhoneCustomerCare,
+        //                                  Term = item.Term,
+        //                                  Month = item.Month,
+        //                                  Year = item.Year,
+
+        //                          }).FirstOrDefault();
+        //                            //sửa để thêm thông tin chỉ số
+        //                            var indexInfor = db.Index_Value.Where(a => a.CustomerId == dskh.CustomerId
+        //                                                            && a.Month == dskh.Month && a.Year == dskh.Year
+        //                                                            && a.IndexType != "DUP")
+        //                                                            .OrderBy(a2 => a2.IndexId)
+        //                                                            .ToList();
+        //                            var billInfor = db.Bill_ElectricityBill.Where(item => item.BillId == Billid).FirstOrDefault();
+        //                            string thoigiandauky = billInfor.StartDate.ToString("dd/MM/yyyy");
+        //                            string thoigiancuoiky = billInfor.EndDate.ToString("dd/MM/yyyy");
+        //                            //CultureInfo cul = CultureInfo.GetCultureInfo("vi-VN");
+        //                            string noidungtinnhan = "";
+        //                            if (indexInfor.Count > 1)  //có nhiều dòng chỉ số
+        //                            {
+        //                                //kiểm tra loại chỉ số
+        //                                var strThongTinChiSo = "thong tin chi so: ";
+        //                                var loaiCS = indexInfor.Select(a => a.IndexType).Distinct();
+        //                                if (loaiCS.Count() > 1)
+        //                                {
+        //                                    var strLoaiCS = "";
+        //                                    foreach (var cs in indexInfor)
+        //                                    {
+        //                                        if (strLoaiCS != cs.IndexType)
+        //                                        {
+        //                                            strLoaiCS = cs.IndexType;
+        //                                            if (strLoaiCS == "DDN")
+        //                                                strThongTinChiSo = strThongTinChiSo + " chi so thao ngay " + cs.EndDate.ToString("dd/MM/yyyy") + " la ";
+        //                                            else if (strLoaiCS == "CCS" || strLoaiCS == "CSC")
+        //                                                strThongTinChiSo = strThongTinChiSo + " chi so chot ngay " + cs.EndDate.ToString("dd/MM/yyyy") + " la ";
+        //                                            else
+        //                                                strThongTinChiSo = strThongTinChiSo + " chi so cuoi ky ";
+        //                                        }
+        //                                        strThongTinChiSo = strThongTinChiSo + cs.NewValue.ToString("#,###", cul.NumberFormat) + ";";
+        //                                    }
+        //                                }
+        //                                else
+        //                                {
+        //                                    foreach (var cs in indexInfor)
+        //                                    {
+        //                                        strThongTinChiSo = strThongTinChiSo + cs.TimeOfUse + ":" + cs.NewValue.ToString("#,###", cul.NumberFormat) + ";";
+        //                                    }
+        //                                }
+        //                                strThongTinChiSo = strThongTinChiSo.Substring(0, strThongTinChiSo.Length - 1);
+        //                                noidungtinnhan = "HTX VinhTuy thong bao: Tu " + thoigiandauky + " den " + thoigiancuoiky + ", MKH " + dskh.CustomerCode + " su dung " + Convert.ToInt32(billInfor.ElectricityIndex) + "kWh, " + strThongTinChiSo + ", so tien thanh toan " + billInfor.Total.ToString("#,###", cul.NumberFormat) + "d";
+        //                            }
+        //                            else
+        //                            {
+        //                                noidungtinnhan = "HTX VinhTuy thong bao: Tu " + thoigiandauky + " den " + thoigiancuoiky + ", MKH " + dskh.CustomerCode + " su dung " + Convert.ToInt32(billInfor.ElectricityIndex) + "kWh, chi so cuoi ky " + indexInfor.FirstOrDefault().NewValue.ToString("#,###", cul.NumberFormat) + ", so tien thanh toan " + billInfor.Total.ToString("#,###", cul.NumberFormat) + "d";
+        //                            }
+        //                            Servicesms.SendMTPortTypeClient sms = new Servicesms.SendMTPortTypeClient();
+        //                            string value_sms = sms.insertSMS("htxvinhtuy", "efhqnx", dskh.PhoneCustomerCare, noidungtinnhan, 2, "HTX VinhTuy", 1, "1");
+        //                            //WriteLog("Ma KH: " + dskh.CustomerCode + "; SDT: " + dskh.PhoneCustomerCare + ". Log: " + value_sms);
+        //                            Sms_Track_Customer sk = new Sms_Track_Customer();
+        //                            sk.BillId = dskh.BillId;
+        //                            sk.CustomerCode = dskh.CustomerCode;
+        //                            sk.CustomerId = dskh.CustomerId;
+        //                            sk.Month = dskh.Month;
+        //                            sk.SmsContent = noidungtinnhan;
+        //                            //sk.SmsTemplateId = nul;
+        //                            sk.PhoneNumber = dskh.PhoneCustomerCare;
+        //                            sk.MessageService = value_sms;
+        //                            sk.SmsTypeId = input.SmsTypeId; // 0; //thông báo ps
+        //                            db.Sms_Track_Customer.Add(sk);
+        //                            db.SaveChanges();
+        //                        }
+        //                        catch (Exception ex)
+        //                        {
+        //                            //WriteLog("Loi: " + ex.ToString());
+        //                            throw;
+        //                        }
+        //                    }
+        //                }
+        //            }
+        //            #endregion
+        //        }
+        //        else
+        //        {
+        //            // thông báo cắt điện (có kế hoạch), thông báo đòi nợ (không cần lưu vết)
+        //            if (input.ListBillId != null)
+        //            {
+        //                using (var db = new CCISContext())
+        //                {
+        //                    for (int i = 0; i < input.ListBillId.Length; i++)
+        //                    {
+        //                        string phantu = input.ListBillId[i].ToString();
+        //                        string[] ad = phantu.Split(',');
+        //                        int Billid = Convert.ToInt32(ad[0]);// đây là billid
+        //                        int cusid = Convert.ToInt32(ad[1]);// đây là cus id
+        //                        string cusCode = ad[2];// đây là cus CustomerCode
+        //                        decimal intTienNo = Convert.ToDecimal(ad[3]);// đây là tiền nợ
+        //                        string cusPhone = ad[4];// đây là cus CustomerPhone
+
+        //                        Servicesms.SendMTPortTypeClient sms = new Servicesms.SendMTPortTypeClient();
+        //                        //tạo nội dung
+        //                        string strNoiDungGui = input.NoiDung.Trim();
+        //                        strNoiDungGui = strNoiDungGui.Replace("*MA_KHANG#", cusCode);
+        //                        strNoiDungGui = strNoiDungGui.Replace("*SO_TIEN#", intTienNo.ToString("#,###", cul.NumberFormat));
+        //                        string value_sms = sms.insertSMS("htxvinhtuy", "efhqnx", cusPhone, strNoiDungGui, 2, "HTX VinhTuy", 1, "1");
+        //                        Sms_Track_Customer sk = new Sms_Track_Customer();
+        //                        sk.BillId = Billid;
+        //                        sk.CustomerCode = cusCode;
+        //                        sk.CustomerId = cusid;
+        //                        sk.Month = DateTime.Now.Month;
+        //                        sk.SmsContent = strNoiDungGui;
+        //                        //sk.SmsTemplateId = nul;
+        //                        sk.PhoneNumber = cusPhone;
+        //                        sk.MessageService = value_sms;
+        //                        sk.SmsTypeId = input.SmsTypeId; //thông báo ps
+        //                        db.Sms_Track_Customer.Add(sk);
+        //                        db.SaveChanges();
+        //                    }
+        //                }
+        //            }
+
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        respone.Status = 0;
+        //        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+        //        respone.Data = null;
+        //        return createResponse();
+        //    }
+        //}
+        #endregion
+
+        [HttpPost]
+        [Route("LiabilitiesManagerBy")]
+        public HttpResponseMessage LiabilitiesManagerBy(LiabilitiesManagerByInput input)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        decimal money = 0;
+                        decimal paymentMoney = 0;
+                        DateTime paymentDate = DateTime.Now;
+                        paymentDate = DateTime.ParseExact(input.SaveDate, "dd-MM-yyyy", CultureInfo.CreateSpecificCulture("vi"));
+                        var createUser = TokenHelper.GetUserIdFromToken();
+                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                        var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
+                        Dictionary<decimal, int> lstBillId = new Dictionary<decimal, int>();
+
+                        var listLiabilitiesTrackDebt =
+                            db.Liabilities_TrackDebt.Where(
+                                item => input.ListBillId.Contains(item.BillId) && listDepartmentId.Contains(item.DepartmentId))
+                                .Select(item => new Liabilities_TrackDebtModel
+                                {
+                                    LiabilitiesId = item.LiabilitiesId,
+                                    BillId = item.BillId,
+                                    BillType = item.BillType,
+                                    DepartmentId = item.DepartmentId,
+                                    CustomerId = item.CustomerId,
+                                    CustomerCode = item.CustomerCode,
+                                    PointId = item.PointId,
+                                    Name = item.Name,
+                                    Address = item.Address,
+                                    InvoiceAddress = item.InvoiceAddress,
+                                    Term = item.Term,
+                                    Month = item.Month,
+                                    Year = item.Year,
+                                    FundsGenerated = item.FundsGenerated,
+                                    TaxesIncurred = item.TaxesIncurred,
+                                    Debt = item.Debt,
+                                    TaxDebt = item.TaxDebt,
+                                    PaymentMethodsCode = HThucTToan.CCIS,
+                                    FigureBookId = item.FigureBookId,
+                                    StatusDebt = item.StatusDebt,
+                                    StatusCorrection = item.StatusCorrection,
+                                    CountOfDelivery = item.CountOfDelivery,
+                                    ReleaseDateBill = item.ReleaseDateBill,
+                                    CreateDate = item.CreateDate,
+                                    CreateUser = item.CreateUser,
+                                    EditDate = item.EditDate,
+                                    Status = item.Status,
+                                }).ToList();
+
+                        var listMonth = listLiabilitiesTrackDebt.Select(x => x.Month).Distinct().ToList();
+                        var listYear = listLiabilitiesTrackDebt.Select(x => x.Year).Distinct().ToList();
+                        var lstFigureBookId = listLiabilitiesTrackDebt.Select(x => x.FigureBookId).Distinct().ToList();
+
+                        var lstCalendarOfSaveIndex = db.Index_CalendarOfSaveIndex.Where(
+                                    item => lstFigureBookId.Contains(item.FigureBookId) &&
+                                            listMonth.Contains(item.Month) &&
+                                            listYear.Contains(item.Year)
+                                            )
+                                .Select(item => new
+                                {
+                                    item.EndDate,
+                                    item.Month,
+                                    item.Year,
+                                    item.Term,
+                                    item.FigureBookId
+                                }).ToList();
+
+
+
+                        foreach (var bill in listLiabilitiesTrackDebt)
+                        {
+
+                            var BillElectricityBillEndDate = db.Bill_ElectricityBill.FirstOrDefault(item => item.BillId == bill.BillId)?.EndDate;
+                            var BillAdjustElectricityBillEndDate = db.Bill_ElectricityBillAdjustment.FirstOrDefault(item => item.BillId == bill.BillId)?.EndDate;
+                            DateTime? endDate = BillElectricityBillEndDate ?? BillAdjustElectricityBillEndDate;
+
+                            paymentMoney = bill.TaxDebt + bill.Debt;
+                            money = paymentMoney;
+                            if (endDate <= paymentDate)
+                            {
+                                input.SaveDate = bill.Month + "-" + bill.Year;
+                                //Cập nhật bảng nợ (xóa nợ)
+                                bill.Debt = 0;
+                                bill.TaxDebt = 0;
+                                bill.Status = 1;
+                                TrackDebt.Updata_Liabilities_TrackDebt(bill, db, createUser, paymentDate);
+                                var trackdept = db.Liabilities_TrackDebt.FirstOrDefault(o => o.BillId == bill.BillId);
+                                // Cập nhật EditUser nếu xóa nợ trên web
+                                if (trackDebt != null)
+                                {
+                                    trackdept.EditUser = createUser;
+                                    db.SaveChanges();
+                                }
+                            }
+                            if (bill.Status == 1)
+                            {
+                                lstBillId.Add(bill.BillId, bill.DepartmentId);
+                            }
+
+                        }
+                        //#endregion
+                        dbContextTransaction.Commit();
+
+                        // Tự động gửi email hóa đơn đến KH                        
+                        var checkSendEmailInvoiceAuto = vParameters.GetParameterValue(DefaultBusinessValue.Administrator_Parameter_Common.GUIHDON_TUDONG_SAUDUYET, "", departmentId);
+                        if (!string.IsNullOrEmpty(checkSendEmailInvoiceAuto))
+                        {
+                            Business_Sms_Manager business = new Business_Sms_Manager();
+                            List<decimal> lstBill = new List<decimal>();
+                            if (lstBillId.Count() > 0)
+                            {
+                                BackgroundJob.Enqueue(() => business.GuiThongBaoHoaDonTuDongSauKhiDuyetXoaNo(lstBillId.Select(x => x.Key).ToList(), lstBillId.Select(x => x.Value).FirstOrDefault()));
+                            }
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "Cập nhật công nợ thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Cập nhật công nợ không thành công. Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        #region Xác nhận hóa đơn
+        [HttpPost]
+        [Route("Move_TrackDebt")]
+        public HttpResponseMessage Move_TrackDebt(Move_TrackDebtInput input)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbT = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var IndexCalendar = db.Index_CalendarOfSaveIndex
+                                    .Where(item => item.Term == input.Term && item.Month == input.Month && item.Year == input.Year && item.FigureBookId == input.FigurebookId)
+                                    .First<Index_CalendarOfSaveIndex>();
+                        if (input.MoveDept == true && IndexCalendar.Status == (int)(DefaultBusinessValue.StatusCalendarOfSaveIndex.ConfirmData))
+                        {
+                            var lstBill = db.Bill_ElectricityBill
+                                                         .Where(item => item.Term == input.Term && item.Month == input.Month
+                                                                         && item.Year == input.Year && item.FigureBookId == input.FigurebookId)
+                                                         .Select(item => new Bill_ElectricityBillModel
+                                                         {
+                                                             BillId = item.BillId,
+                                                             DepartmentId = item.DepartmentId,
+                                                             CustomerId = item.CustomerId,
+                                                             CustomerCode = item.CustomerCode,
+                                                             CustomerName = item.CustomerName,
+                                                             Term = item.Term,
+                                                             Month = item.Month,
+                                                             Year = item.Year,
+                                                             SubTotal = item.SubTotal,
+                                                             VAT = item.VAT,
+                                                             BillType = item.BillType,
+                                                             PointId = db.Bill_ElectricityBillDetail.Where(x => x.Term == input.Term && x.Month == input.Month
+                                                                         && x.Year == input.Year && x.FigureBookId == input.FigurebookId)
+                                                                         .Select(x => x.PointId).Distinct().FirstOrDefault()
+                                                         })
+                                                         .ToList();
+
+                            Compare_Liabilities_TrackDebt(lstBill, db);
+                        }
+                        IndexCalendar.Status = (int)(DefaultBusinessValue.StatusCalendarOfSaveIndex.SignedandReleased);
+                        db.SaveChanges();
+                        dbT.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbT.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        [HttpPost]
+        [Route("Move_TrackDebtList")]
+        public HttpResponseMessage Move_TrackDebtList(Move_TrackDebtListInput input)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbT = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (var ite in input.LstFigurebook)
+                        {
+                            var IndexCalendar = db.Index_CalendarOfSaveIndex
+                                       .Where(item => item.Term == ite.Term && item.Month == input.ConfirmDate.Month && item.Year == input.ConfirmDate.Year && item.FigureBookId == ite.FigureBookId)
+                                       .First<Index_CalendarOfSaveIndex>();
+                            if (input.MoveDept == true && IndexCalendar.Status == (int)(DefaultBusinessValue.StatusCalendarOfSaveIndex.ConfirmData))
+                            {
+                                var lstBill = db.Bill_ElectricityBill
+                                    .Where(item => item.Term == ite.Term && item.Month == input.ConfirmDate.Month
+                                                    && item.Year == input.ConfirmDate.Year && item.FigureBookId == ite.FigureBookId)
+                                    .Select(item => new Bill_ElectricityBillModel
+                                    {
+                                        BillId = item.BillId,
+                                        DepartmentId = item.DepartmentId,
+                                        CustomerId = item.CustomerId,
+                                        CustomerCode = item.CustomerCode,
+                                        CustomerName = item.CustomerName,
+                                        Term = item.Term,
+                                        Month = item.Month,
+                                        Year = item.Year,
+                                        SubTotal = item.SubTotal,
+                                        VAT = item.VAT,
+                                        BillType = item.BillType,
+                                        PointId = db.Bill_ElectricityBillDetail.Where(x => x.Term == ite.Term && x.Month == input.ConfirmDate.Month
+                                                     && x.Year == input.ConfirmDate.Year && x.FigureBookId == ite.FigureBookId)
+                                                     .Select(x => x.PointId).Distinct().FirstOrDefault()
+                                    })
+                                    .ToList();
+                                Compare_Liabilities_TrackDebt(lstBill, db);
+                            }
+                            IndexCalendar.Status = (int)(DefaultBusinessValue.StatusCalendarOfSaveIndex.SignedandReleased);
+                            db.SaveChanges();
+                        }
+                        dbT.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbT.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        //Chuyển sang công nợ
+        public void Compare_Liabilities_TrackDebt(List<Bill_ElectricityBillModel> billElectricityBill, CCISContext db)
+        {
+
+            int createUser = TokenHelper.GetUserIdFromToken();
+
+            // thực hiện vòng lặp hóa đơn để kiểm tra xem có bên bảng theo dõi nợ không, nếu có thì thông báo, nếu không thì đông bộ dữ liệu sang
+            for (int j = 0; j < billElectricityBill.Count; j++)
+            {
+                int pointId = Convert.ToInt32(billElectricityBill[j].PointId);
+                Bill_ElectricityBillModel lisBill = billElectricityBill[j];
+                int CustomerId = Convert.ToInt32(lisBill.CustomerId);
+                int Term = Convert.ToInt32(lisBill.Term);
+                int Month = Convert.ToInt32(lisBill.Month);
+                int Year = Convert.ToInt32(lisBill.Year);
+                decimal BillId = billElectricityBill[j].BillId;
+                string BillType = lisBill.BillType.Trim();
+                // check xem bang Liabilities_TrackDebt  có dữ liệu chưa, nếu chưa có thì insert, có rồi thì thông báo lên
+                int Liabilities_TrackDebt =
+                    db.Liabilities_TrackDebt.Where(
+                        item =>
+                            item.CustomerId.Equals(CustomerId) && item.Term.Equals(Term) &&
+                            item.Month.Equals(Month)
+                            && item.Year.Equals(Year) && item.BillType.Equals(BillType) && item.BillId.Equals(BillId)).Count();
+                if (Liabilities_TrackDebt <= 0)
+                {
+                    var Name =
+                        db.Concus_Customer.Where(item => item.CustomerId.Equals(lisBill.CustomerId))
+                            .Select(item => item.Name)
+                            .FirstOrDefault();
+                    var CustomerCode =
+                       db.Concus_Customer.Where(item => item.CustomerId.Equals(lisBill.CustomerId))
+                           .Select(item => item.CustomerCode)
+                           .FirstOrDefault();
+                    var Address =
+                        db.Concus_Customer.Where(item => item.CustomerId.Equals(lisBill.CustomerId))
+                            .Select(item => item.Address)
+                            .FirstOrDefault();
+                    var InvoiceAddress =
+                        db.Concus_Customer.Where(item => item.CustomerId.Equals(lisBill.CustomerId))
+                            .Select(item => item.InvoiceAddress)
+                            .FirstOrDefault();
+                    Liabilities_TrackDebt modelTrackDebt = new Liabilities_TrackDebt();
+                    modelTrackDebt.BillId = lisBill.BillId;
+                    modelTrackDebt.BillType = lisBill.BillType;
+                    modelTrackDebt.DepartmentId = lisBill.DepartmentId;
+                    modelTrackDebt.CustomerId = lisBill.CustomerId;
+                    modelTrackDebt.Name = Name;
+                    modelTrackDebt.Address = Address;
+                    modelTrackDebt.InvoiceAddress = InvoiceAddress;
+                    modelTrackDebt.Term = lisBill.Term;
+                    modelTrackDebt.Month = lisBill.Month;
+                    modelTrackDebt.Year = lisBill.Year;
+                    modelTrackDebt.FundsGenerated = lisBill.SubTotal;
+                    modelTrackDebt.TaxesIncurred = lisBill.VAT;
+                    modelTrackDebt.Debt = lisBill.SubTotal;
+                    modelTrackDebt.TaxDebt = lisBill.VAT;
+                    modelTrackDebt.CreateDate = DateTime.Now;
+                    modelTrackDebt.CreateUser = createUser;
+                    modelTrackDebt.EditDate = DateTime.Now;
+                    modelTrackDebt.Status = 0;
+                    modelTrackDebt.CustomerCode = CustomerCode;
+                    modelTrackDebt.PointId = pointId;
+                    modelTrackDebt.FigureBookId =
+                        db.Bill_ElectricityBillDetail.Where(item => item.BillId.Equals(lisBill.BillId))
+                            .Select(item => item.FigureBookId)
+                            .FirstOrDefault();
+                    // chưa có thì insert vao
+                    TrackDebt.Insert_Liabilities_TrackDebt(modelTrackDebt, db);
+                }
+            }
+        }
+        #endregion
+
+        #region Xác nhận hóa đơn hiệu chỉnh
+        [HttpGet]
+        [Route("Confirm_TrackDebt_Adjustment")]
+        public HttpResponseMessage Confirm_TrackDebt_Adjustment(DateTime? confirmDate)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    var lstBill = db.Bill_ElectricityBillAdjustment
+                                    .Where(item => item.Month_Incurred == confirmDate.Value.Month
+                                        && item.Year_Incurred == confirmDate.Value.Year
+                                        && item.SerialCode != null && item.SerialNumber != null
+                                        && item.Status == 0)
+                                    .Select(item => new Bill_ElectricityBillAdjustmentModel
+                                    {
+                                        Term = item.Term,
+                                        Month = item.Month,
+                                        Year = item.Year,
+                                        DepartmentId = item.DepartmentId,
+                                        BillId = item.BillId,
+                                        BillType = item.BillType,
+                                        CustomerId = item.CustomerId,
+                                        SubTotal = item.SubTotal,
+                                        VAT = item.VAT,
+                                        AdjustmentType = item.AdjustmentType,
+                                        DepartmentName = db.Administrator_Department.Where(x => x.DepartmentId == item.DepartmentId)
+                                                            .Select(x => x.DepartmentName).FirstOrDefault(),
+                                        CustomerCode = item.CustomerCode,
+                                        CustomerName = item.CustomerName,
+                                    }).ToList();
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = lstBill;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("Move_TrackDebt_Adjustment")]
+        public HttpResponseMessage Move_TrackDebt_Adjustment(decimal[] lstBill, DateTime confirmDate)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbTran = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (var ite in lstBill)
+                        {
+                            var lstBillAdjustment = db.Bill_ElectricityBillAdjustment
+                                                        .Where(item => item.BillId == ite)
+                                                        .Select(item => new Bill_ElectricityBillAdjustmentModel
+                                                        {
+                                                            Term = item.Term,
+                                                            Month = item.Month,
+                                                            Year = item.Year,
+                                                            DepartmentId = item.DepartmentId,
+                                                            BillId = item.BillId,
+                                                            BillType = item.BillType,
+                                                            CustomerId = item.CustomerId,
+                                                            SubTotal = item.SubTotal,
+                                                            VAT = item.VAT,
+                                                            AdjustmentType = item.AdjustmentType,
+                                                            DepartmentName = db.Administrator_Department.Where(x => x.DepartmentId == item.DepartmentId)
+                                                                                .Select(x => x.DepartmentName).FirstOrDefault(),
+                                                            CustomerCode = item.CustomerCode,
+                                                            CustomerName = item.CustomerName,
+                                                            BillAddress = item.BillAddress,
+                                                            Address_Pay = item.Address_Pay
+                                                        }).ToList();
+
+                            Compare_Liabilities_TrackDebt_Bill_Adjustment(lstBillAdjustment, db);
+
+                            var bill = db.Bill_ElectricityBillAdjustment.Where(x => x.BillId == ite).FirstOrDefault();
+                            bill.Status = 1;
+                            db.SaveChanges();
+                        }
+
+                        dbTran.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbTran.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        // chuyển hóa đơn hiệu chỉnh sang công nợ
+        public void Compare_Liabilities_TrackDebt_Bill_Adjustment(List<Bill_ElectricityBillAdjustmentModel> lstBill, CCISContext db)
+        {
+            int createUser = TokenHelper.GetUserIdFromToken();
+            // thực hiện vòng lặp hóa đơn để kiểm tra xem có bên bảng theo dõi nợ không, nếu có thì thông báo, nếu không thì đông bộ dữ liệu sang
+            foreach (var item in lstBill)
+            {
+                // check xem bang Liabilities_TrackDebt  có dữ liệu chưa, nếu chưa có thì insert, có rồi thì thông báo lên
+                var Count =
+                    db.Liabilities_TrackDebt.Where(
+                        x => x.BillId.Equals(item.BillId)).Count();
+                if (Count <= 0)
+                {
+                    Liabilities_TrackDebt modelTrackDebt = new Liabilities_TrackDebt();
+                    modelTrackDebt.BillId = item.BillId;
+                    modelTrackDebt.BillType = item.BillType;
+                    modelTrackDebt.DepartmentId = item.DepartmentId;
+                    modelTrackDebt.CustomerId = item.CustomerId;
+                    modelTrackDebt.Name = item.CustomerName;
+                    modelTrackDebt.Address = item.BillAddress;
+                    modelTrackDebt.InvoiceAddress = item.Address_Pay;
+                    modelTrackDebt.Term = item.Term;
+                    modelTrackDebt.Month = item.Month;
+                    modelTrackDebt.Year = item.Year;
+                    modelTrackDebt.FundsGenerated = item.SubTotal;
+                    modelTrackDebt.TaxesIncurred = item.VAT;
+                    modelTrackDebt.Debt = Math.Abs(item.SubTotal);
+                    modelTrackDebt.TaxDebt = Math.Abs(item.VAT);
+                    modelTrackDebt.CreateDate = DateTime.Now;
+                    modelTrackDebt.CreateUser = createUser;
+                    modelTrackDebt.EditDate = DateTime.Now;
+                    modelTrackDebt.Status = 0;
+                    modelTrackDebt.CustomerCode = item.CustomerCode;
+                    modelTrackDebt.PointId = db.Bill_ElectricityBillAdjustmentDetail
+                                            .Where(x => x.BillId == item.BillId)
+                                            .Select(x => x.PointId)
+                                            .FirstOrDefault();
+                    modelTrackDebt.FigureBookId =
+                        db.Bill_ElectricityBillAdjustmentDetail.Where(x => x.BillId == item.BillId)
+                            .Select(x => x.FigureBookId)
+                            .FirstOrDefault();
+                    // chưa có thì insert vao
+                    TrackDebt.Insert_Liabilities_TrackDebt(modelTrackDebt, db);
+                }
+            }
+        }
+        #endregion
+
         #region Commons
         protected decimal ValueExcessMoney(int CustomerId, int DepartmentId, CCISContext db)
         {
@@ -1417,7 +2368,6 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                 paymentMoney = Convert.ToDecimal(namemoney);
             }
 
-            Liabilities_ExcessMoney ExcessMoney = new Liabilities_ExcessMoney();
             int createUser = TokenHelper.GetUserIdFromToken();
             // thực hiện chấm xóa nợ
             // lấy ra tiền thừa khách hàng nếu có
@@ -1489,7 +2439,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
                         {
                             #region logic
                             saveDate = liabilitiesTrackDebt.Month + "-" + liabilitiesTrackDebt.Year; // trường này dùng để redirect url
-                            // bước 1 : -  cập nhật tiền từng row trước,
+                                                                                                     // bước 1 : -  cập nhật tiền từng row trước,
                             decimal debt = liabilitiesTrackDebt.Debt;
                             decimal taxDebt = liabilitiesTrackDebt.TaxDebt;
                             int logTrack;
@@ -1882,7 +2832,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon.CongNo
         }
 
         protected void Insert_LiabilitiesExcessMoney_TaxInvoiceLog(int CustomerId, CCISContext db, int CreateUser)
-        {            
+        {
             var ExcessMoney =
                 db.Liabilities_ExcessMoney_TaxInvoice.Where(item => item.CustomerId.Equals(CustomerId)).FirstOrDefault();
             Liabilities_ExcessMoney_Log model = new Liabilities_ExcessMoney_Log();
