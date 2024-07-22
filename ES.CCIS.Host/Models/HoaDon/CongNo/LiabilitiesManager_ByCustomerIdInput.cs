@@ -85,4 +85,19 @@ namespace ES.CCIS.Host.Models.HoaDon.CongNo
         public DateTime ConfirmDate { get; set; }
         public bool MoveDept { get; set; }
     }
+
+    public class RelationPointManagerModel
+    {
+        public int DepartmentId { get; set; }
+        public string PointCode { get; set; }
+        public string ContractCode { get; set; }
+        public int NumberOfPhase { get; set; }
+        public int PointId { get; set; }
+        public string DepartmentName { get; set; }
+        public string RegionName { get; set; }
+        public bool Status { get; set; }
+        public int RegionId { get; set; }
+        public int ContractId { get; set; }
+        public bool Checked { get; set; }
+    }
 }

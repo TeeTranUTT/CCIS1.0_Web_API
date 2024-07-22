@@ -246,10 +246,12 @@
     <Compile Include="Controllers\DanhMuc\Category_TeamController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_TestingDepartmentController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_VoltageTransformerTypeController.cs" />
+    <Compile Include="Controllers\DanhMuc\ServiceController.cs" />
     <Compile Include="Controllers\Hilo\HiloController.cs" />
     <Compile Include="Controllers\HoaDon\BillController.cs" />
     <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesController.cs" />
     <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesTransController.cs" />
+    <Compile Include="Controllers\HoaDon\CongNo\RelationPointManagerController.cs" />
     <Compile Include="Controllers\HoaDon\ConvertBillController.cs" />
     <Compile Include="Controllers\HoaDon\EditBillTaxInvoiceController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
@@ -257,6 +259,8 @@
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\Concus_CustomerController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\ServicePointController.cs" />
     <Compile Include="Controllers\RegistrationController.cs" />
+    <Compile Include="Controllers\SearchController.cs" />
+    <Compile Include="Controllers\SmsManagerController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Controllers\XacThucController.cs" />
     <Compile Include="Filters\InitializeAdministratorAttribute.cs" />
@@ -277,6 +281,7 @@
     <Compile Include="Models\HopDong\ContractExtendedInfoModel.cs" />
     <Compile Include="Models\HopDong\ContractLiquidationInput.cs" />
     <Compile Include="Models\ResponseModel.cs" />
+    <Compile Include="Models\SearchModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Startup.cs" />
     <Compile Include="Utilities\TypeUtilities.cs" />
