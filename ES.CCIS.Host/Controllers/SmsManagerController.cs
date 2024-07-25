@@ -338,257 +338,257 @@ namespace ES.CCIS.Host.Controllers
             }
         }
 
-        //[HttpGet]
-        //[Route("SmsToCustomer")]
-        //public HttpResponseMessage SmsToCustomer([DefaultValue(1)] int pageNumber, [DefaultValue(0)] int term, [DefaultValue(0)] int departmentId, [DefaultValue(0)] int figureBookId, DateTime? month, string typeOfGet)
-        //{
-        //    try
-        //    {
-        //        if (month == null)
-        //        {
-        //            month = DateTime.Now;
-        //        }
+        [HttpGet]
+        [Route("SmsToCustomer")]
+        public HttpResponseMessage SmsToCustomer([DefaultValue(1)] int pageNumber, [DefaultValue(0)] int term, [DefaultValue(0)] int departmentId, [DefaultValue(0)] int figureBookId, DateTime? month, string typeOfGet)
+        {
+            try
+            {
+                if (month == null)
+                {
+                    month = DateTime.Now;
+                }
 
-        //        if (departmentId == 0)
-        //            departmentId = TokenHelper.GetDepartmentIdFromToken();
+                if (departmentId == 0)
+                    departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-        //        var userInfo = TokenHelper.GetUserInfoFromRequest();
-        //        //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO departmentId
-        //        var listDepartmentUserAll = DepartmentHelper.GetChildDepIds(departmentId);
-        //        //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO tài khoản đang đăng nhập
-        //        var listDepartmentUser = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
+                var userInfo = TokenHelper.GetUserInfoFromRequest();
+                //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO departmentId
+                var listDepartmentUserAll = DepartmentHelper.GetChildDepIds(departmentId);
+                //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO tài khoản đang đăng nhập
+                var listDepartmentUser = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
 
-        //        using (var db = new CCISContext())
-        //        {
-        //            //List billId theo kỳ
-        //            var listBillId = db.Liabilities_TrackDebt.Where(item => listDepartmentUserAll.Contains(item.DepartmentId)
-        //               && (figureBookId == 0 || item.FigureBookId == figureBookId)
-        //               && item.Year == month.Value.Year && item.Month == month.Value.Month
-        //               && item.Term == term &&
-        //                  (
-        //                        item.Status == 0 ||
-        //                        item.Status == 4 ||
-        //                        item.Status == 5
-        //                    )
-        //               )
-        //               .Select(item => item.BillId).ToList();
+                using (var db = new CCISContext())
+                {
+                    //List billId theo kỳ
+                    var listBillId = db.Liabilities_TrackDebt.Where(item => listDepartmentUserAll.Contains(item.DepartmentId)
+                       && (figureBookId == 0 || item.FigureBookId == figureBookId)
+                       && item.Year == month.Value.Year && item.Month == month.Value.Month
+                       && item.Term == term &&
+                          (
+                                item.Status == 0 ||
+                                item.Status == 4 ||
+                                item.Status == 5
+                            )
+                       )
+                       .Select(item => item.BillId).ToList();
 
-        //            var lstBill = db.Bill_ElectricityBill.Where(i => listBillId.Contains(i.BillId)).Select(i => new Bill_ElectricityBillModel
-        //            {
-        //                BillId = i.BillId,
-        //                CustomerCode = i.CustomerCode,
-        //                CustomerName = i.CustomerName,
-        //                BillType = i.BillType,
-        //                Total = i.Total,
-        //                DepartmentId = i.DepartmentId,
-        //                CustomerId = i.CustomerId,
-        //                FigureBookId = i.FigureBookId,
-        //                ElectricityIndex = i.ElectricityIndex
-        //            }).ToList();
-        //            lstBill.AddRange(db.Bill_ElectricityBillAdjustment.Where(i => listBillId.Contains(i.BillId)).Select(i => new Bill_ElectricityBillModel
-        //            {
-        //                BillId = i.BillId,
-        //                CustomerCode = i.CustomerCode,
-        //                CustomerName = i.CustomerName,
-        //                BillType = i.BillType,
-        //                Total = i.Total,
-        //                DepartmentId = i.DepartmentId,
-        //                CustomerId = i.CustomerId,
-        //                FigureBookId = i.FigureBookId,
-        //                ElectricityIndex = i.ElectricityIndex
-        //            }).ToList());
+                    var lstBill = db.Bill_ElectricityBill.Where(i => listBillId.Contains(i.BillId)).Select(i => new Bill_ElectricityBillModel
+                    {
+                        BillId = i.BillId,
+                        CustomerCode = i.CustomerCode,
+                        CustomerName = i.CustomerName,
+                        BillType = i.BillType,
+                        Total = i.Total,
+                        DepartmentId = i.DepartmentId,
+                        CustomerId = i.CustomerId,
+                        FigureBookId = i.FigureBookId,
+                        ElectricityIndex = i.ElectricityIndex
+                    }).ToList();
+                    lstBill.AddRange(db.Bill_ElectricityBillAdjustment.Where(i => listBillId.Contains(i.BillId)).Select(i => new Bill_ElectricityBillModel
+                    {
+                        BillId = i.BillId,
+                        CustomerCode = i.CustomerCode,
+                        CustomerName = i.CustomerName,
+                        BillType = i.BillType,
+                        Total = i.Total,
+                        DepartmentId = i.DepartmentId,
+                        CustomerId = i.CustomerId,
+                        FigureBookId = i.FigureBookId,
+                        ElectricityIndex = i.ElectricityIndex
+                    }).ToList());
 
-        //            var lstCustomer = lstBill.Select(x => x.CustomerId).Distinct().ToList();
+                    var lstCustomer = lstBill.Select(x => x.CustomerId).Distinct().ToList();
 
-        //            var lst1 = (from ccon in db.Concus_Customer
-        //                        join cc in db.Concus_Contract
-        //                        on ccon.CustomerId equals cc.CustomerId
-        //                        join cs in db.Concus_ServicePoint
-        //                        on cc.ContractId equals cs.ContractId
-        //                        join ct in db.Category_Satiton
-        //                        on cs.StationId equals ct.StationId
-        //                        where lstCustomer.Contains(ccon.CustomerId) && cs.Status
-        //                        select new
-        //                        {
-        //                            ccon.CustomerId,
-        //                            ccon.PhoneCustomerCare,
-        //                            ccon.ZaloCustomerCare,
-        //                            cs.Address,
-        //                            ct.StationCode
-        //                        }).ToList();
-        //            var lst = (from lstBillQ in lstBill
-        //                       join lstInfoQ in lst1
-        //                       on lstBillQ.CustomerId equals lstInfoQ.CustomerId
-        //                       group new { lstBillQ, lstInfoQ } by new
-        //                       {
-        //                           lstBillQ.BillId,
-        //                           lstBillQ.CustomerCode,
-        //                           lstBillQ.CustomerName,
-        //                           lstBillQ.BillType,
-        //                           lstBillQ.Total,
-        //                           lstBillQ.DepartmentId,
-        //                           lstBillQ.CustomerId,
-        //                           lstInfoQ.PhoneCustomerCare,
-        //                           lstInfoQ.ZaloCustomerCare,
-        //                           lstBillQ.FigureBookId,
-        //                           lstBillQ.ElectricityIndex
-        //                       } into grbill
-        //                       select new
-        //                       {
-        //                           AddressPoint = grbill.FirstOrDefault().lstInfoQ.Address,
-        //                           StationCode = grbill.Select(x => x.lstInfoQ.StationCode).ToList(),
-        //                           BillId = grbill.Key.BillId,
-        //                           CustomerCode = grbill.Key.CustomerCode,
-        //                           CustomerName = grbill.Key.CustomerName,
-        //                           BillType = grbill.Key.BillType,
-        //                           Total = grbill.Key.Total,
-        //                           DepartmentId = grbill.Key.DepartmentId,
-        //                           CustomerId = grbill.Key.CustomerId,
-        //                           PhoneNumber = grbill.Key.PhoneCustomerCare,
-        //                           ZaloNumber = grbill.Key.ZaloCustomerCare,
-        //                           FigureBookId = grbill.Key.FigureBookId,
-        //                           ElectricityIndex = grbill.Key.ElectricityIndex
-        //                       }).AsEnumerable().Select(grbill => new
-        //                       {
+                    var lst1 = (from ccon in db.Concus_Customer
+                                join cc in db.Concus_Contract
+                                on ccon.CustomerId equals cc.CustomerId
+                                join cs in db.Concus_ServicePoint
+                                on cc.ContractId equals cs.ContractId
+                                join ct in db.Category_Satiton
+                                on cs.StationId equals ct.StationId
+                                where lstCustomer.Contains(ccon.CustomerId) && cs.Status
+                                select new
+                                {
+                                    ccon.CustomerId,
+                                    ccon.PhoneCustomerCare,
+                                    ccon.ZaloCustomerCare,
+                                    cs.Address,
+                                    ct.StationCode
+                                }).ToList();
+                    var lst = (from lstBillQ in lstBill
+                               join lstInfoQ in lst1
+                               on lstBillQ.CustomerId equals lstInfoQ.CustomerId
+                               group new { lstBillQ, lstInfoQ } by new
+                               {
+                                   lstBillQ.BillId,
+                                   lstBillQ.CustomerCode,
+                                   lstBillQ.CustomerName,
+                                   lstBillQ.BillType,
+                                   lstBillQ.Total,
+                                   lstBillQ.DepartmentId,
+                                   lstBillQ.CustomerId,
+                                   lstInfoQ.PhoneCustomerCare,
+                                   lstInfoQ.ZaloCustomerCare,
+                                   lstBillQ.FigureBookId,
+                                   lstBillQ.ElectricityIndex
+                               } into grbill
+                               select new
+                               {
+                                   AddressPoint = grbill.FirstOrDefault().lstInfoQ.Address,
+                                   StationCode = grbill.Select(x => x.lstInfoQ.StationCode).ToList(),
+                                   BillId = grbill.Key.BillId,
+                                   CustomerCode = grbill.Key.CustomerCode,
+                                   CustomerName = grbill.Key.CustomerName,
+                                   BillType = grbill.Key.BillType,
+                                   Total = grbill.Key.Total,
+                                   DepartmentId = grbill.Key.DepartmentId,
+                                   CustomerId = grbill.Key.CustomerId,
+                                   PhoneNumber = grbill.Key.PhoneCustomerCare,
+                                   ZaloNumber = grbill.Key.ZaloCustomerCare,
+                                   FigureBookId = grbill.Key.FigureBookId,
+                                   ElectricityIndex = grbill.Key.ElectricityIndex
+                               }).AsEnumerable().Select(grbill => new
+                               {
 
-        //                           AddressPoint = grbill.AddressPoint,
-        //                           StationCode = string.Join(";", grbill.StationCode.ToArray()),
-        //                           BillId = grbill.BillId,
-        //                           CustomerCode = grbill.CustomerCode,
-        //                           CustomerName = grbill.CustomerName,
-        //                           BillType = grbill.BillType,
-        //                           Total = grbill.Total,
-        //                           DepartmentId = grbill.DepartmentId,
-        //                           CustomerId = grbill.CustomerId,
-        //                           PhoneNumber = grbill.PhoneNumber,
-        //                           ZaloNumber = grbill.ZaloNumber,
-        //                           FigureBookId = grbill.FigureBookId,
-        //                           ElectricityIndex = grbill.ElectricityIndex
-        //                       }).ToList();
+                                   AddressPoint = grbill.AddressPoint,
+                                   StationCode = string.Join(";", grbill.StationCode.ToArray()),
+                                   BillId = grbill.BillId,
+                                   CustomerCode = grbill.CustomerCode,
+                                   CustomerName = grbill.CustomerName,
+                                   BillType = grbill.BillType,
+                                   Total = grbill.Total,
+                                   DepartmentId = grbill.DepartmentId,
+                                   CustomerId = grbill.CustomerId,
+                                   PhoneNumber = grbill.PhoneNumber,
+                                   ZaloNumber = grbill.ZaloNumber,
+                                   FigureBookId = grbill.FigureBookId,
+                                   ElectricityIndex = grbill.ElectricityIndex
+                               }).ToList();
 
-        //            List<int> smsTrackQuery = null;
-        //            switch (typeOfGet)
-        //            {
-        //                case "Sended":
-        //                    smsTrackQuery = db.Sms_Track_Customer.Where(i => listBillId.Contains(i.BillId) && i.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && i.Status == 1
-        //                    && i.Month == month.Value.Month && i.Year == month.Value.Year).Select(i => i.CustomerId).ToList();
-        //                    lst = lst.Where(i => smsTrackQuery.Contains(i.CustomerId)).ToList();
-        //                    break;
-        //                case "Unsend":
-        //                    smsTrackQuery = db.Sms_Track_Customer.Where(i => listBillId.Contains(i.BillId) && i.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && i.Status == 1
-        //                    && i.Month == month.Value.Month && i.Year == month.Value.Year).Select(i => i.CustomerId).ToList();
-        //                    lst = lst.Where(i => !smsTrackQuery.Contains(i.CustomerId)).ToList();
-        //                    break;
-        //                case "Error":
-        //                    var template = db.Sms_Template.Select(i => new { i.SmsTemplateId, i.AppSend }).ToList();
+                    List<int> smsTrackQuery = null;
+                    switch (typeOfGet)
+                    {
+                        case "Sended":
+                            smsTrackQuery = db.Sms_Track_Customer.Where(i => listBillId.Contains(i.BillId) && i.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && i.Status == 1
+                            && i.Month == month.Value.Month && i.Year == month.Value.Year).Select(i => i.CustomerId).ToList();
+                            lst = lst.Where(i => smsTrackQuery.Contains(i.CustomerId)).ToList();
+                            break;
+                        case "Unsend":
+                            smsTrackQuery = db.Sms_Track_Customer.Where(i => listBillId.Contains(i.BillId) && i.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && i.Status == 1
+                            && i.Month == month.Value.Month && i.Year == month.Value.Year).Select(i => i.CustomerId).ToList();
+                            lst = lst.Where(i => !smsTrackQuery.Contains(i.CustomerId)).ToList();
+                            break;
+                        case "Error":
+                            var template = db.Sms_Template.Select(i => new { i.SmsTemplateId, i.AppSend }).ToList();
 
-        //                    var smsHistory = (from h in db.Sms_Track_Customer
-        //                                      join t in db.Sms_Template
-        //                                      on h.SmsTemplateId equals t.SmsTemplateId
-        //                                      where listBillId.Contains(h.BillId) && h.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && h.Month == month.Value.Month && h.Year == month.Value.Year && h.Status != 1
-        //                                      select new { h.BillId, h.Status, h.MessageService, h.CreateDate, t.AppSend }//Todo: Có bỏ h.CreateDate vì gây ra lỗi
-        //                                      ).ToList();
+                            var smsHistory = (from h in db.Sms_Track_Customer
+                                              join t in db.Sms_Template
+                                              on h.SmsTemplateId equals t.SmsTemplateId
+                                              where listBillId.Contains(h.BillId) && h.SmsTypeId == SMS_TYPE_ThongBaoTienDienNuoc && h.Month == month.Value.Month && h.Year == month.Value.Year && h.Status != 1
+                                              select new { h.BillId, h.Status, h.MessageService, h.CreateDate, t.AppSend }
+                                              ).ToList();
 
-        //                    var groupData = smsHistory.GroupBy(o => o.BillId).Select(o => new { BillId = o.Key, history = o.OrderByDescending(o1 => o1.CreateDate).ToList() }).ToList();
-
-
-        //                    var data = (from a in lst
-        //                                join b in groupData
-        //                                on a.BillId equals b.BillId
-        //                                select new Bill_ElectricityBillModel
-        //                                {
-        //                                    AddressPoint = a.AddressPoint,
-        //                                    StationCode = a.StationCode,
-        //                                    BillId = a.BillId,
-        //                                    CustomerCode = a.CustomerCode,
-        //                                    CustomerName = a.CustomerName,
-        //                                    BillType = a.BillType,
-        //                                    Total = a.Total,
-        //                                    DepartmentId = a.DepartmentId,
-        //                                    CustomerId = a.CustomerId,
-        //                                    PhoneNumber = a.PhoneNumber,
-        //                                    ZaloNumber = a.ZaloNumber,
-        //                                    FigureBookId = a.FigureBookId,
-        //                                    ElectricityIndex = a.ElectricityIndex,
-        //                                    Sms_History = b.history.Select(d => new Bill_Sms_History
-        //                                    {
-        //                                        AppSend = d.AppSend,
-        //                                        Message = d.MessageService,
-        //                                        Created = d.CreateDate
-        //                                    }).OrderByDescending(h => h.Created).ToList()
-        //                                });
-
-        //                    var paged = (IPagedList<Bill_ElectricityBillModel>)data.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
+                            var groupData = smsHistory.GroupBy(o => o.BillId).Select(o => new { BillId = o.Key, history = o.OrderByDescending(o1 => o1.CreateDate).ToList() }).ToList();
 
 
-        //                    var response = new
-        //                    {
-        //                        paged.PageNumber,
-        //                        paged.PageSize,
-        //                        paged.TotalItemCount,
-        //                        paged.PageCount,
-        //                        paged.HasNextPage,
-        //                        paged.HasPreviousPage,
-        //                        ElectricityBills = paged.ToList()
-        //                    };
-        //                    respone.Status = 1;
-        //                    respone.Message = "OK";
-        //                    respone.Data = response;
-        //                    return createResponse();
+                            var data = (from a in lst
+                                        join b in groupData
+                                        on a.BillId equals b.BillId
+                                        select new Bill_ElectricityBillModel
+                                        {
+                                            AddressPoint = a.AddressPoint,
+                                            StationCode = a.StationCode,
+                                            BillId = a.BillId,
+                                            CustomerCode = a.CustomerCode,
+                                            CustomerName = a.CustomerName,
+                                            BillType = a.BillType,
+                                            Total = a.Total,
+                                            DepartmentId = a.DepartmentId,
+                                            CustomerId = a.CustomerId,
+                                            PhoneNumber = a.PhoneNumber,
+                                            ZaloNumber = a.ZaloNumber,
+                                            FigureBookId = a.FigureBookId,
+                                            ElectricityIndex = a.ElectricityIndex,
+                                            Sms_History = b.history.Select(d => new Bill_Sms_History
+                                            {
+                                                AppSend = d.AppSend,
+                                                Message = d.MessageService,
+                                                Created = d.CreateDate
+                                            }).OrderByDescending(h => h.Created).ToList()
+                                        });
 
-        //            }
-        //            // Chỉ hiển thị những khách hàng chưa gửi được tin nhắn thành công
-        //            var PageSize_SMS = lst.Count();
-        //            if (PageSize_SMS > 0)
-        //            {
-        //                var lst2 = lst.Select(a => new Bill_ElectricityBillModel
-        //                {
-        //                    AddressPoint = a.AddressPoint,
-        //                    StationCode = a.StationCode,
-        //                    BillId = a.BillId,
-        //                    CustomerCode = a.CustomerCode,
-        //                    CustomerName = a.CustomerName,
-        //                    BillType = a.BillType,
-        //                    Total = a.Total,
-        //                    DepartmentId = a.DepartmentId,
-        //                    CustomerId = a.CustomerId,
-        //                    PhoneNumber = a.PhoneNumber,
-        //                    ZaloNumber = a.ZaloNumber,
-        //                    FigureBookId = a.FigureBookId,
-        //                    ElectricityIndex = a.ElectricityIndex
-        //                }).OrderBy(item => item.CustomerCode);
+                            var paged = (IPagedList<Bill_ElectricityBillModel>)data.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
 
-        //                var paged = (IPagedList<Bill_ElectricityBillModel>)lst2.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
 
-        //                var response = new
-        //                {
-        //                    paged.PageNumber,
-        //                    paged.PageSize,
-        //                    paged.TotalItemCount,
-        //                    paged.PageCount,
-        //                    paged.HasNextPage,
-        //                    paged.HasPreviousPage,
-        //                    ElectricityBills = paged.ToList()
-        //                };
-        //                respone.Status = 1;
-        //                respone.Message = "OK";
-        //                respone.Data = response;
-        //                return createResponse();
-        //            }
-        //            else
-        //            {
-        //                throw new ArgumentException("Không có dữ liệu.");
-        //            }
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        respone.Status = 0;
-        //        respone.Message = $"Lỗi: {ex.Message.ToString()}";
-        //        respone.Data = null;
-        //        return createResponse();
-        //    }
-        //}
+                            var response = new
+                            {
+                                paged.PageNumber,
+                                paged.PageSize,
+                                paged.TotalItemCount,
+                                paged.PageCount,
+                                paged.HasNextPage,
+                                paged.HasPreviousPage,
+                                ElectricityBills = paged.ToList()
+                            };
+                            respone.Status = 1;
+                            respone.Message = "OK";
+                            respone.Data = response;
+                            return createResponse();
+
+                    }
+                    // Chỉ hiển thị những khách hàng chưa gửi được tin nhắn thành công
+                    var PageSize_SMS = lst.Count();
+                    if (PageSize_SMS > 0)
+                    {
+                        var lst2 = lst.Select(a => new Bill_ElectricityBillModel
+                        {
+                            AddressPoint = a.AddressPoint,
+                            StationCode = a.StationCode,
+                            BillId = a.BillId,
+                            CustomerCode = a.CustomerCode,
+                            CustomerName = a.CustomerName,
+                            BillType = a.BillType,
+                            Total = a.Total,
+                            DepartmentId = a.DepartmentId,
+                            CustomerId = a.CustomerId,
+                            PhoneNumber = a.PhoneNumber,
+                            ZaloNumber = a.ZaloNumber,
+                            FigureBookId = a.FigureBookId,
+                            ElectricityIndex = a.ElectricityIndex
+                        }).OrderBy(item => item.CustomerCode);
+
+                        var paged = (IPagedList<Bill_ElectricityBillModel>)lst2.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
+
+                        var response = new
+                        {
+                            paged.PageNumber,
+                            paged.PageSize,
+                            paged.TotalItemCount,
+                            paged.PageCount,
+                            paged.HasNextPage,
+                            paged.HasPreviousPage,
+                            ElectricityBills = paged.ToList()
+                        };
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = response;
+                        return createResponse();
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Không có dữ liệu.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
 
         [HttpPost]
         [Route("SmsToCustomer_Post")]
@@ -782,46 +782,46 @@ namespace ES.CCIS.Host.Controllers
                 using (var db = new CCISContext())
                 {
                     var query = (from a in db.Liabilities_TrackDebt
-                               join b in db.Concus_Customer
-                               on a.CustomerId equals b.CustomerId
+                                 join b in db.Concus_Customer
+                                 on a.CustomerId equals b.CustomerId
 
-                               join cc in db.Concus_Contract
-                               on a.CustomerId equals cc.CustomerId
-                               join cs in db.Concus_ServicePoint
-                               on cc.ContractId equals cs.ContractId
-                               join ct in db.Category_Satiton
-                               on cs.StationId equals ct.StationId
+                                 join cc in db.Concus_Contract
+                                 on a.CustomerId equals cc.CustomerId
+                                 join cs in db.Concus_ServicePoint
+                                 on cc.ContractId equals cs.ContractId
+                                 join ct in db.Category_Satiton
+                                 on cs.StationId equals ct.StationId
 
-                               where (listDepartmentUserAll.Contains(a.DepartmentId)
-                               && (figureBookId == 0 || a.FigureBookId == figureBookId)
-                               && (a.Status == 0 || a.Status == 4 || a.Status == 5)
-                               && ((b.PhoneCustomerCare != null && b.PhoneCustomerCare != "") || (b.ZaloCustomerCare != null && b.ZaloCustomerCare != ""))
-                               && (a.TaxDebt + a.Debt) > 0)
-                               && cs.Status
-                               select new Liabilities_TrackDebtModel
-                               {
-                                   AddressPoint = cs.Address,
-                                   StationCode = ct.StationCode,
-                                   FigureBookId = a.FigureBookId,
-                                   CustomerId = a.CustomerId,
-                                   CustomerName = b.Name,
-                                   Address = b.Address,
-                                   CustomerCode = b.CustomerCode,
-                                   Total = a.Debt + a.TaxDebt,
-                                   PhoneNumber = b.PhoneCustomerCare,
-                                   ZaloNumber = b.ZaloCustomerCare,
-                               }).GroupBy(r => new
-                               {
-                                   r.CustomerCode,
-                                   r.CustomerId,
-                                   r.CustomerName,
-                                   r.PhoneNumber,
-                                   r.ZaloNumber,
-                                   r.Address,
-                                   r.FigureBookId,
-                                   r.AddressPoint,
-                                   r.StationCode
-                               })
+                                 where (listDepartmentUserAll.Contains(a.DepartmentId)
+                                 && (figureBookId == 0 || a.FigureBookId == figureBookId)
+                                 && (a.Status == 0 || a.Status == 4 || a.Status == 5)
+                                 && ((b.PhoneCustomerCare != null && b.PhoneCustomerCare != "") || (b.ZaloCustomerCare != null && b.ZaloCustomerCare != ""))
+                                 && (a.TaxDebt + a.Debt) > 0)
+                                 && cs.Status
+                                 select new Liabilities_TrackDebtModel
+                                 {
+                                     AddressPoint = cs.Address,
+                                     StationCode = ct.StationCode,
+                                     FigureBookId = a.FigureBookId,
+                                     CustomerId = a.CustomerId,
+                                     CustomerName = b.Name,
+                                     Address = b.Address,
+                                     CustomerCode = b.CustomerCode,
+                                     Total = a.Debt + a.TaxDebt,
+                                     PhoneNumber = b.PhoneCustomerCare,
+                                     ZaloNumber = b.ZaloCustomerCare,
+                                 }).GroupBy(r => new
+                                 {
+                                     r.CustomerCode,
+                                     r.CustomerId,
+                                     r.CustomerName,
+                                     r.PhoneNumber,
+                                     r.ZaloNumber,
+                                     r.Address,
+                                     r.FigureBookId,
+                                     r.AddressPoint,
+                                     r.StationCode
+                                 })
                                 .Select(cr => new Liabilities_TrackDebtViewModel
                                 {
                                     CustomerId = cr.Key.CustomerId,
@@ -886,7 +886,7 @@ namespace ES.CCIS.Host.Controllers
                         string zaloNumber = split[5];
 
                         Sms_Data_SendModel modelCustomer = new Sms_Data_SendModel();
-                        modelCustomer.BillId = 0;                        
+                        modelCustomer.BillId = 0;
                         modelCustomer.tientd = ToTal_TD;
                         //các trường bắt buộc có
                         modelCustomer.makh = customerCode;
@@ -931,7 +931,7 @@ namespace ES.CCIS.Host.Controllers
 
                     if (strKQ != "OK")
                     {
-                        throw new ArgumentException($"Gửi tin nhắn có lỗi: {strKQ}");                        
+                        throw new ArgumentException($"Gửi tin nhắn có lỗi: {strKQ}");
                     }
                     else
                     {
@@ -973,26 +973,26 @@ namespace ES.CCIS.Host.Controllers
                 {
                     // Lấy danh sách sổ với điều kiện khách trong sổ chưa thanh toán
                     var query = (from a in db.Liabilities_TrackDebt
-                                                     join b in db.Category_FigureBook
-                                                     on a.FigureBookId equals b.FigureBookId
-                                                     join c in db.Concus_Customer
-                                                     on a.CustomerId equals c.CustomerId
+                                 join b in db.Category_FigureBook
+                                 on a.FigureBookId equals b.FigureBookId
+                                 join c in db.Concus_Customer
+                                 on a.CustomerId equals c.CustomerId
 
-                                                     where (listDepartmentUserAll.Contains(a.DepartmentId)
-                                                     && getFigureBookId.Contains(a.FigureBookId.Value)
-                                                     && (figureBookId == 0 || a.FigureBookId == figureBookId)
-                                                     &&
-                                                        (a.Status == 0 || a.Status == 4 || a.Status == 5)
-                                                     && (a.TaxDebt + a.Debt) > 0)
-                                                     select new Liabilities_TrackDebtViewModel
-                                                     {
-                                                         FigureBookId = a.FigureBookId.Value,
-                                                         BookName = b.BookName,
-                                                         BookCode = b.BookCode,
-                                                         CustomerId = a.CustomerId,
-                                                         PhoneNumber = c.PhoneCustomerCare,
-                                                         ZaloNumber = c.ZaloCustomerCare,                                                         
-                                                     }).GroupBy(item => new { item.FigureBookId, item.BookName, item.BookCode })
+                                 where (listDepartmentUserAll.Contains(a.DepartmentId)
+                                 && getFigureBookId.Contains(a.FigureBookId.Value)
+                                 && (figureBookId == 0 || a.FigureBookId == figureBookId)
+                                 &&
+                                    (a.Status == 0 || a.Status == 4 || a.Status == 5)
+                                 && (a.TaxDebt + a.Debt) > 0)
+                                 select new Liabilities_TrackDebtViewModel
+                                 {
+                                     FigureBookId = a.FigureBookId.Value,
+                                     BookName = b.BookName,
+                                     BookCode = b.BookCode,
+                                     CustomerId = a.CustomerId,
+                                     PhoneNumber = c.PhoneCustomerCare,
+                                     ZaloNumber = c.ZaloCustomerCare,
+                                 }).GroupBy(item => new { item.FigureBookId, item.BookName, item.BookCode })
                                                      .Select(ite => new Sms_ShowBook
                                                      {
                                                          FigureBookId = ite.Key.FigureBookId,
@@ -1062,7 +1062,7 @@ namespace ES.CCIS.Host.Controllers
                         string strKQ = businessSms.GuiThongBaoNhacNo(find, db, input.IsSendAgain);
                         message.Append($"{sogcs.BookCode} - {sogcs.BookName}: ");
                         message.Append(strKQ);
-                        message.Append("\n");                        
+                        message.Append("\n");
                     }
 
                     respone.Status = 1;
@@ -1090,7 +1090,7 @@ namespace ES.CCIS.Host.Controllers
                 if (departmentId == 0)
                     departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-                var listDepartmentUserAll = DepartmentHelper.GetChildDepIds(departmentId);                
+                var listDepartmentUserAll = DepartmentHelper.GetChildDepIds(departmentId);
 
                 if (month == null)
                 {
@@ -1196,7 +1196,7 @@ namespace ES.CCIS.Host.Controllers
             }
         }
 
-        //[HttpGet]
+        //[HttpGet] ToDo: Còn vướng chỗ file excel
         //[Route("")]
         //public HttpResponseMessage SmsViewStatus([DefaultValue(1)] int page,
         //                                    [DefaultValue("")] string txtTimKiem, [DefaultValue(-1)] int smsTemplateId,
@@ -1214,7 +1214,581 @@ namespace ES.CCIS.Host.Controllers
         //        respone.Data = null;
         //        return createResponse();
         //    }
+        // }
+
+
+        [HttpGet]
+        [Route("GetSMSDetailContent")]
+        public HttpResponseMessage GetSMSDetailContent(int SmsTrackCusId)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    var detail = db.Sms_Track_Customer.Where(trk => trk.SmsTrackCusId == SmsTrackCusId)
+                              .Select(o => new
+                              {
+                                  o.SmsTemplateId,
+                                  o.CustomerId,
+                                  o.CreateDate,
+                                  o.PhoneNumber,
+                                  o.SmsContent,
+                                  o.Status,
+                                  o.Email,
+                                  o.MessageService,
+                                  o.StatusService
+                              }).FirstOrDefault();
+
+                    respone.Status = 1;
+                    respone.Message = "Lấy danh sách khách hàng thành công.";
+                    respone.Data = detail;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
         }
+
+        [HttpGet]
+        [Route("AddSms_Template")]
+        public HttpResponseMessage AddSms_Template()
+        {
+            try
+            {
+                var userInfo = TokenHelper.GetUserInfoFromRequest();
+
+                var lstDepartmentIds = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
+                var departments = (from a in _ccisContext.Administrator_Department
+                                   orderby a.DepartmentCode
+                                   where lstDepartmentIds.Contains(a.DepartmentId)
+                                   select new
+                                   {
+                                       Value = a.DepartmentId.ToString(),
+                                       Text = a.DepartmentName
+                                   }).ToList();
+
+                var listServiceSms = _ccisContext.Sms_Service_Type
+                    .Where(item =>
+                    item.IsVisible)
+                    .ToList()
+                    .OrderBy(item => item.SmsTypeId)
+                    .Select(i => new
+                    {
+
+                        Value = i.SmsTypeId.ToString(),
+                        Text = i.SmsTypeName
+                    }).ToList();
+
+                string[] strings = new[] { APP_SEND.SMS, APP_SEND.EMAIL };
+                var response = new
+                {
+                    SlsDepartmentId = departments,
+                    SlsSmsTypeId = listServiceSms,
+                    SlsAppSend = strings
+                };
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("ExecuteAddSms_Template")]
+        public HttpResponseMessage ExecuteAddSms_Template(AddOrUpdateTemplateModel model)
+        {
+            try
+            {
+                if (model != null)
+                {
+                    _businessSms.AddSms_Template(model);
+
+                    respone.Status = 1;
+                    respone.Message = "Thêm mẫu tin nhắn thành công.";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException("Dữ liệu đầu vào không được bỏ trống.");
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpGet]
+        [Route("Template_SmsManager")]
+        public HttpResponseMessage Template_SmsManager([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId)
+        {
+            try
+            {
+                var query = _businessSms.GetTemplateSmsManagerModel(departmentId, search, User.Identity.Name, pageNumber, pageSize);
+
+                var paged = (IPagedList<Template_SmsManagerModel>)query.ListTempItems.ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    paged.PageNumber,
+                    paged.PageSize,
+                    paged.TotalItemCount,
+                    paged.PageCount,
+                    paged.HasNextPage,
+                    paged.HasPreviousPage,
+                    SmsManagers = paged.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpGet]
+        [Route("EditSms_Template")]
+        public HttpResponseMessage EditSms_Template(int smsTemplateId)
+        {
+            try
+            {
+                var modelfromData = _businessSms.GetTemplate(smsTemplateId);
+
+                if (modelfromData == null)
+                {
+                    throw new ArgumentException($"Không tìm thấy smstemplate có id = {smsTemplateId}");
+                }
+
+                var userInfo = TokenHelper.GetUserInfoFromRequest();
+                var lstDepartmentIds = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
+                var departments = (from a in _ccisContext.Administrator_Department
+                                   orderby a.DepartmentCode
+                                   where lstDepartmentIds.Contains(a.DepartmentId)
+                                   select new
+                                   {
+                                       Value = a.DepartmentId.ToString(),
+                                       Text = a.DepartmentName
+                                   }).ToList();
+
+                var listServiceSms = _ccisContext.Sms_Template
+                    .Where(item => item.SmsTemplateId == smsTemplateId && !item.IsDelete)
+                    .ToList().OrderBy(item => item.SmsTypeId).Select(i => new
+                    {
+
+                        Value = i.SmsTypeId.ToString(),
+                        Text = _ccisContext.Sms_Service_Type
+                                .Where(item => item.SmsTypeId == i.SmsTypeId)
+                                .Select(item1 => item1.SmsTypeName).FirstOrDefault()
+                    }).ToList();
+
+
+                // binding dữ liệu
+                string[] strings = new[] { APP_SEND.SMS, APP_SEND.EMAIL };
+                var response = new
+                {
+                    SlsDepartmentId = departments,
+                    SlsSmsTypeId = listServiceSms,
+                    SlsAppSend = strings
+                };
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditSms_Template")]
+        public HttpResponseMessage EditSms_Template(AddOrUpdateTemplateModel model)
+        {
+            try
+            {
+                var modelfromData = _businessSms.GetTemplate(model.SmsTemplateId);
+
+                if (modelfromData == null)
+                {
+                    throw new ArgumentException($"Không tìm thấy smstemplate có id = {model.SmsTemplateId}");
+                }
+
+                if (model != null)
+                {
+                    _businessSms.EditSms_Template(model);
+
+                    respone.Status = 1;
+                    respone.Message = "Chỉnh sửa mẫu tin nhắn thành công.";
+                    respone.Data = model.SmsTemplateId;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException("Dữ liệu đầu vào không được để trống.");
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("DeleteSms_Template")]
+        public HttpResponseMessage DeleteSms_Template(int smsTemplateId)
+        {
+            try
+            {
+                using (var db = new CCISContext())
+                {
+                    var target = db.Sms_Template.Where(item => item.SmsTemplateId == smsTemplateId).FirstOrDefault();
+                    target.IsDelete = true;
+                    db.SaveChanges();
+                }
+
+                respone.Status = 1;
+                respone.Message = "Xóa mẫu tin nhắn thành công.";
+                respone.Data = null;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        //Load Quản lý khách hàng nhận Email
+        [HttpGet]
+        [Route("Concus_CustomerEmail")]
+        public HttpResponseMessage Concus_CustomerEmail([DefaultValue(1)] int pageNumber, [DefaultValue("")] string search, [DefaultValue(0)] int departmentId,
+            [DefaultValue(0)] int stationId, [DefaultValue(0)] int FigureBookId, [DefaultValue(0)] int Status)
+        {
+            try
+            {
+                List<Concus_Customer_EmailModel> listCustomerEmail = new List<Concus_Customer_EmailModel>();
+                using (var db = new CCISContext())
+                {
+                    IEnumerable<Concus_CustomerModel> lists;
+                    if (departmentId == 0)
+                    {
+                        lists = new List<Concus_CustomerModel>();
+                    }
+                    else
+                    {
+                        var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
+                        listCustomerEmail = (from c in db.Concus_Customer_Email
+                                             where (listDepartments.Contains(c.DepartmentId))
+                                             orderby c.CustomerCode
+                                             select new Concus_Customer_EmailModel
+                                             {
+                                                 CustomerEmailId = c.CustomerEmailId,
+                                                 CustomerId = c.CustomerId,
+                                                 CustomerCode = c.CustomerCode,
+                                                 DepartmentId = c.DepartmentId,
+                                                 UserId = c.UserId,
+                                                 Status = c.Status
+                                             }).ToList();
+
+                        lists = (from item in db.Concus_Customer
+                                 join a in db.Concus_Contract
+                                 on item.CustomerId equals a.CustomerId
+                                 join b in db.Concus_ServicePoint
+                                 on a.ContractId equals b.ContractId
+
+                                 where (listDepartments.Contains(item.DepartmentId))
+                                 && (b.StationId == stationId)
+                                 && (b.FigureBookId == FigureBookId)
+                                 select new Concus_CustomerModel
+                                 {
+                                     CustomerId = item.CustomerId,
+                                     CustomerCode = item.CustomerCode,
+                                     DepartmentId = item.DepartmentId,
+                                     Name = item.Name,
+                                     Address = item.Address,
+                                     InvoiceAddress = item.InvoiceAddress,
+                                     Gender = item.Gender,
+                                     Email = item.Email,
+                                     PhoneNumber = item.PhoneNumber,
+                                     TaxCode = item.TaxCode,
+                                     Ratio = item.Ratio,
+                                     BankAccount = item.BankAccount,
+                                     BankName = item.BankName,
+                                     Status = item.Status,
+                                     CreateDate = item.CreateDate,
+                                     CreateUser = item.CreateUser,
+                                     PhoneCustomerCare = item.PhoneCustomerCare,
+                                     ZaloCustomerCare = item.ZaloCustomerCare
+                                 });
+                        if (!string.IsNullOrEmpty(search))
+                        {
+                            lists = (IQueryable<Concus_CustomerModel>)lists.Where(item => item.Name.Contains(search) || item.CustomerCode.Contains(search) || item.PhoneCustomerCare.Contains(search) || item.Address.Contains(search));
+                        }
+                        if (Status != 1)//Kiểm tra trạng thái email: 1 - Tất Cả, 2 - Có, 3 - Không
+                        {
+                            lists = lists.Where(x => (Status == 2 && x.Email != null) || (Status == 3 && x.Email == null)).ToList();
+                        }
+
+                    }
+                    var paged = (IPagedList<Concus_CustomerModel>)lists.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
+
+                    var response = new
+                    {
+                        paged.PageNumber,
+                        paged.PageSize,
+                        paged.TotalItemCount,
+                        paged.PageCount,
+                        paged.HasNextPage,
+                        paged.HasPreviousPage,
+                        Customers = paged.ToList()
+                    };
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = response;
+                    return createResponse();
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("AllCheckboxConcus_CustomerEmail")]
+        public HttpResponseMessage AllCheckboxConcus_CustomerEmail(List<Concus_Customer_EmailModel> model, int departmentId)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var listCustomer_Email = db.Concus_Customer_Email.Where(item => item.DepartmentId == departmentId).ToList();
+                        var listCustomerId = listCustomer_Email.Select(x => x.CustomerId).ToList();
+                        List<Concus_Customer_Email> customer_Email = new List<Concus_Customer_Email>();
+                        foreach (var customerToEmail in model)
+                        {
+                            if (listCustomer_Email.Count() != 0)
+                            {
+                                var checkcustomer = listCustomer_Email.Where(s => s.CustomerId == customerToEmail.CustomerId).FirstOrDefault();
+                                if (checkcustomer == null)
+                                {
+                                    var target = new Concus_Customer_Email
+                                    {
+                                        CustomerId = customerToEmail.CustomerId,
+                                        CustomerCode = customerToEmail.CustomerCode,
+                                        DepartmentId = customerToEmail.DepartmentId,
+                                        UserId = customerToEmail.UserId,
+                                        Status = true
+                                    };
+                                    customer_Email.Add(target);
+                                }
+                            }
+                            else
+                            {
+                                var target = new Concus_Customer_Email
+                                {
+                                    CustomerId = customerToEmail.CustomerId,
+                                    CustomerCode = customerToEmail.CustomerCode,
+                                    DepartmentId = customerToEmail.DepartmentId,
+                                    UserId = customerToEmail.UserId,
+                                    Status = true
+                                };
+                                customer_Email.Add(target);
+                            }
+                        }
+
+                        db.Concus_Customer_Email.AddRange(customer_Email);
+                        db.SaveChanges();
+                        dbContextTransaction.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "Chọn khách hàng nhận email thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        [HttpPost]
+        [Route("AddCheckAllConcus_CustomerEmail")]
+        public HttpResponseMessage AddCheckAllConcus_CustomerEmail(AddCheckAllConcus_CustomerEmailInput input)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var listDepartments = DepartmentHelper.GetChildDepIds(input.DepartmentId);
+                        var listCustomer_Email = db.Concus_Customer_Email.Where(item => item.DepartmentId == input.DepartmentId).ToList();
+
+                        List<Concus_CustomerModel> listCustomer = new List<Concus_CustomerModel>();
+                        if (input.DepartmentId == 0)
+                        {
+                            listCustomer = new List<Concus_CustomerModel>();
+                        }
+                        else
+                        {
+                            listCustomer = (from item in db.Concus_Customer
+                                            join a in db.Concus_Contract
+                                            on item.CustomerId equals a.CustomerId
+                                            join b in db.Concus_ServicePoint
+                                            on a.ContractId equals b.ContractId
+                                            where (listDepartments.Contains(item.DepartmentId))
+                                            && (b.StationId == input.StationId)
+                                            && (b.FigureBookId == input.FigureBookId)
+                                            && (item.Name.Contains(input.Search) || item.CustomerCode.Contains(input.Search) || item.PhoneCustomerCare.Contains(input.Search) || item.Address.Contains(input.Search))
+                                            orderby item.CustomerCode
+                                            select new Concus_CustomerModel
+                                            {
+                                                CustomerId = item.CustomerId,
+                                                CustomerCode = item.CustomerCode,
+                                                DepartmentId = item.DepartmentId,
+                                                Email = item.Email
+                                            }).ToList();
+                        }
+
+                        if (input.Status != 1)
+                        {
+                            listCustomer = listCustomer.Where(x => (input.Status == 2 && x.Email != null) || (input.Status == 3 && x.Email == null)).ToList();
+                        }
+
+                        List<Concus_Customer_Email> customer_Email = new List<Concus_Customer_Email>();
+                        foreach (var customerToEmail in listCustomer)
+                        {
+                            if (listCustomer_Email.Count() != 0)
+                            {
+                                var checkcustomer = listCustomer_Email.Where(s => s.CustomerId == customerToEmail.CustomerId).FirstOrDefault();
+                                if (checkcustomer == null)
+                                {
+                                    var target = new Concus_Customer_Email
+                                    {
+                                        CustomerId = customerToEmail.CustomerId,
+                                        CustomerCode = customerToEmail.CustomerCode,
+                                        DepartmentId = customerToEmail.DepartmentId,
+                                        UserId = input.UserId,
+                                        Status = true
+                                    };
+                                    customer_Email.Add(target);
+                                }
+                            }
+                            else
+                            {
+                                var target = new Concus_Customer_Email
+                                {
+                                    CustomerId = customerToEmail.CustomerId,
+                                    CustomerCode = customerToEmail.CustomerCode,
+                                    DepartmentId = customerToEmail.DepartmentId,
+                                    UserId = input.UserId,
+                                    Status = true
+                                };
+                                customer_Email.Add(target);
+                            }
+                        }
+
+                        db.Concus_Customer_Email.AddRange(customer_Email);
+                        db.SaveChanges();
+                        dbContextTransaction.Commit();
+
+                        respone.Status = 1;
+                        respone.Message = "Chọn khách hàng nhận email thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        [HttpPost]
+        [Route("DeleteConcus_CustomerEmail")]
+        public HttpResponseMessage DeleteConcus_CustomerEmail(int customerId)
+        {
+            using (var db = new CCISContext())
+            {
+                using (var dbContextTransaction = db.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var target = db.Concus_Customer_Email.Where(item => item.CustomerId == customerId).FirstOrDefault();
+                        if (target != null)
+                        {
+                            db.Concus_Customer_Email.Remove(target);
+                            db.SaveChanges();
+                            dbContextTransaction.Commit();
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "OK";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    catch (Exception ex)
+                    {
+                        dbContextTransaction.Rollback();
+                        respone.Status = 0;
+                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                }
+            }
+        }
+
+        //Todo: chưa viết api SmsToCustomer_WithFileAttack, SmsToCustomer_WithFileAttackSend 
         #region Class
         public class SmsToBook_PostInput
         {
@@ -1251,5 +1825,16 @@ namespace ES.CCIS.Host.Controllers
             public bool IsSendAgain { get; set; }
             public int? Email_Time_Sleep { get; set; }
         }
-        #endregion    
+
+        public class AddCheckAllConcus_CustomerEmailInput
+        {
+            public int DepartmentId { get; set; }
+            public int Status { get; set; }
+            public int UserId { get; set; }
+            public int StationId { get; set; }
+            public int FigureBookId { get; set; }
+            public string Search { get; set; }
+        }
+        #endregion
+    }
 }

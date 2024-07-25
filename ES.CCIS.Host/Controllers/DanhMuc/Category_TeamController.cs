@@ -18,9 +18,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department business_Administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Team businessTeam = new Business_Category_Team();
+        private readonly CCISContext dbContext;
         public Category_TeamController()
         {
-
+            dbContext = new CCISContext();
         }
         #region Danh mục đội
         [HttpGet]
@@ -93,38 +94,37 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"teamId {teamId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
-                {
-                    var team = dbContext.Category_Team.Where(p => p.TeamId == teamId).Select(p => new Category_TeamModel
-                    {
-                        TeamId = p.TeamId,
-                        DepartmentId = p.DepartmentId,
-                        TeamCode = p.TeamCode,                        
-                        TeamName = p.TeamName,
-                        PhoneNumber = p.PhoneNumber,
-                        Status = p.Status
-                    });
 
-                    if (team?.Any() == true)
+                var team = dbContext.Category_Team.Where(p => p.TeamId == teamId).Select(p => new Category_TeamModel
+                {
+                    TeamId = p.TeamId,
+                    DepartmentId = p.DepartmentId,
+                    TeamCode = p.TeamCode,
+                    TeamName = p.TeamName,
+                    PhoneNumber = p.PhoneNumber,
+                    Status = p.Status
+                });
+
+                if (team?.Any() == true)
+                {
+                    var response = team.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = team.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin đội thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Đội {response.TeamName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin đội thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Đội có TeamId {teamId} không tồn tại.");
+                        throw new ArgumentException($"Đội {response.TeamName} đã bị vô hiệu.");
                     }
                 }
+                else
+                {
+                    throw new ArgumentException($"Đội có TeamId {teamId} không tồn tại.");
+                }
+
             }
             catch (Exception ex)
             {
@@ -181,8 +181,8 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
                 team.DepartmentId = departmentId;
-                #endregion                
-                
+                #endregion
+
                 businessTeam.AddCategory_Team(team);
 
                 using (var dbContext = new CCISContext())
@@ -233,7 +233,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                     team.DepartmentId = departmentId;
                     #endregion
-                  
+
                     businessTeam.EditCategory_Team(team);
 
                     respone.Status = 1;

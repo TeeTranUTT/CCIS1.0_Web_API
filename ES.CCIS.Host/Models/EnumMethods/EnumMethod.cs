@@ -167,6 +167,27 @@ namespace ES.CCIS.Host.Models.EnumMethods
             
         }
 
+        public partial class ServiceType
+        {
+            public const int NONTAI = 2;
+            public const int QLVH = 10;
+            public const int DVK = 3;
+                        
+            public static string GetString(int id)
+            {
+                switch (id)
+                {
+                    case 2: return "Non tải";
+                    case 3: return "Dịch vụ khác";
+                    case 10: return "Quản lý vận hành";
+                    default: return "Không xác định";
+                }
+            }
+            public static List<int> ListBoolean => typeof(ServiceType).GetAllPublicConstantValues<int>();
+            public static List<KeyValuePair<int, string>> ListKeyValueBoolean => ListBoolean.Select(p => new KeyValuePair<int, string>(p, GetString(p))).ToList();
+
+        }
+
         [Flags]
         public enum StatusTrackDebt
         {
@@ -188,5 +209,6 @@ namespace ES.CCIS.Host.Models.EnumMethods
             SigningBill = 10, //Trạng thái tồn tại trong thời gian rất ngắn, khi đang ký. Nếu select thấy giá trị này có nghĩa là sổ đang ký bị lỗi
             SignedandReleased = 11// Đã ký hóa đơn điện tử, chuyển sang công nợ, phát hành hóa đơn
         }
+        
     }
 }
