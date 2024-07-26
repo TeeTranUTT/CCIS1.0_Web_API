@@ -230,6 +230,7 @@
     <Compile Include="Commons\HttpResponseMessageBase.cs" />
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
+    <Compile Include="Controllers\CauHinh\TemplateXsltController.cs" />
     <Compile Include="Controllers\ChiSo\IndexController.cs" />
     <Compile Include="Controllers\CongTo\CurrentTransformerController.cs" />
     <Compile Include="Controllers\CongTo\ElectricMeterController.cs" />
