@@ -231,9 +231,11 @@
     <Compile Include="Controllers\ApiBaseController.cs" />
     <Compile Include="Controllers\CategoryController.cs" />
     <Compile Include="Controllers\CauHinh\TemplateXsltController.cs" />
+    <Compile Include="Controllers\CauHinh\TemplateZaloController.cs" />
     <Compile Include="Controllers\ChiSo\IndexController.cs" />
     <Compile Include="Controllers\CongTo\CurrentTransformerController.cs" />
     <Compile Include="Controllers\CongTo\ElectricMeterController.cs" />
+    <Compile Include="Controllers\CongTo\VoltageTransformerController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_CurrentTransformerTypeController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_Device_UsbController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_ElectricityMeterTypeController.cs" />
@@ -249,6 +251,7 @@
     <Compile Include="Controllers\DanhMuc\Category_TestingDepartmentController.cs" />
     <Compile Include="Controllers\DanhMuc\Category_VoltageTransformerTypeController.cs" />
     <Compile Include="Controllers\DanhMuc\ServiceController.cs" />
+    <Compile Include="Controllers\GiaoThu\Track_Debt_DeliveryController.cs" />
     <Compile Include="Controllers\Hilo\HiloController.cs" />
     <Compile Include="Controllers\HoaDon\BillController.cs" />
     <Compile Include="Controllers\HoaDon\CongNo\LiabilitiesController.cs" />
@@ -257,6 +260,7 @@
     <Compile Include="Controllers\HoaDon\ConvertBillController.cs" />
     <Compile Include="Controllers\HoaDon\EditBillTaxInvoiceController.cs" />
     <Compile Include="Controllers\HoaDon\HoaDonGTGT\TaxInvoiceCustomServiceController.cs" />
+    <Compile Include="Controllers\HoaDon\HoaDonNuoc\WaterBillController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\Concus_ContractController.cs" />
     <Compile Include="Controllers\KhachHang_HopDong_DiemDo\Concus_CustomerController.cs" />
@@ -268,6 +272,7 @@
     <Compile Include="Controllers\TemplateNotificationMobileController.cs" />
     <Compile Include="Controllers\ValuesController.cs" />
     <Compile Include="Controllers\XacThucController.cs" />
+    <Compile Include="Controllers\ZaloZNSController.cs" />
     <Compile Include="Filters\InitializeAdministratorAttribute.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
@@ -284,6 +289,7 @@
     <Compile Include="Models\HoaDon\CongNo\LiabilitiesManager_ByCustomerIdInput.cs" />
     <Compile Include="Models\HoaDon\ElectricityBillCalculatorInput.cs" />
     <Compile Include="Models\HoaDon\HoaDonGTGT\TaxInvoiceCustomServiceModel.cs" />
+    <Compile Include="Models\HoaDon\HoaDonNuoc\WaterBillAsyncDTO.cs" />
     <Compile Include="Models\HopDong\ContractExtendedInfoModel.cs" />
     <Compile Include="Models\HopDong\ContractLiquidationInput.cs" />
     <Compile Include="Models\ResponseModel.cs" />
