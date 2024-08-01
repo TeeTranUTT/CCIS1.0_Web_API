@@ -17,6 +17,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Employee business_Category_Employee = new Business_Category_Employee();
+        private readonly CCISContext _dbContext;
+
+        public Category_EmployeeController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_EmployeeManager")]
@@ -34,40 +40,37 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //list đơn vị con của user đăng nhập
                 var lstDepCombo = DepartmentHelper.GetChildDepIds(administrator_Department.GetIddv(userInfo.UserName));
 
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Employee.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_EmployeeModel
                 {
-                    var query = db.Category_Employee.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_EmployeeModel
-                    {
-                        DepartmentId = item.DepartmentId,
-                        EmployeeCode = item.EmployeeCode,
-                        EmployeeId = item.EmployeeId,
-                        FullName = item.FullName,
-                        Status = item.Status,
-                        Type = item.Type
-                    });
+                    DepartmentId = item.DepartmentId,
+                    EmployeeCode = item.EmployeeCode,
+                    EmployeeId = item.EmployeeId,
+                    FullName = item.FullName,
+                    Status = item.Status,
+                    Type = item.Type
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_EmployeeModel>)query.Where(item => item.FullName.Contains(search) || item.EmployeeCode.Contains(search));
-                    }
-
-                    var pagedEmployee = (IPagedList<Category_EmployeeModel>)query.OrderBy(p => p.EmployeeId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedEmployee.PageNumber,
-                        pagedEmployee.PageSize,
-                        pagedEmployee.TotalItemCount,
-                        pagedEmployee.PageCount,
-                        pagedEmployee.HasNextPage,
-                        pagedEmployee.HasPreviousPage,
-                        Employees = pagedEmployee.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách nhân viên thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_EmployeeModel>)query.Where(item => item.FullName.Contains(search) || item.EmployeeCode.Contains(search));
                 }
+
+                var pagedEmployee = (IPagedList<Category_EmployeeModel>)query.OrderBy(p => p.EmployeeId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedEmployee.PageNumber,
+                    pagedEmployee.PageSize,
+                    pagedEmployee.TotalItemCount,
+                    pagedEmployee.PageCount,
+                    pagedEmployee.HasNextPage,
+                    pagedEmployee.HasPreviousPage,
+                    Employees = pagedEmployee.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách nhân viên thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -88,37 +91,34 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"EmployeeId {employeeId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var employee = _dbContext.Category_Employee.Where(p => p.EmployeeId == employeeId).Select(item => new Category_EmployeeModel
                 {
-                    var employee = dbContext.Category_Employee.Where(p => p.EmployeeId == employeeId).Select(item => new Category_EmployeeModel
-                    {
-                        DepartmentId = item.DepartmentId,
-                        EmployeeCode = item.EmployeeCode,
-                        EmployeeId = item.EmployeeId,
-                        FullName = item.FullName,
-                        Status = item.Status,
-                        Type = item.Type
-                    });
+                    DepartmentId = item.DepartmentId,
+                    EmployeeCode = item.EmployeeCode,
+                    EmployeeId = item.EmployeeId,
+                    FullName = item.FullName,
+                    Status = item.Status,
+                    Type = item.Type
+                });
 
-                    if (employee?.Any() == true)
+                if (employee?.Any() == true)
+                {
+                    var response = employee.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = employee.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin nhân viên thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Nhân viên {response.FullName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin nhân viên thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Nhân viên có EmployeeId {employeeId} không tồn tại.");
+                        throw new ArgumentException($"Nhân viên {response.FullName} đã bị vô hiệu.");
                     }
+                }
+                else
+                {
+                    throw new ArgumentException($"Nhân viên có EmployeeId {employeeId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -151,24 +151,22 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     business_Category_Employee.AddCategory_Employee(model);
 
-                    using (var dbContext = new CCISContext())
+                    var nhanVien = _dbContext.Category_Employee.Where(p => p.FullName == model.FullName && p.EmployeeCode == model.EmployeeCode).FirstOrDefault();
+                    if (nhanVien != null)
                     {
-                        var nhanVien = dbContext.Category_Employee.Where(p => p.FullName == model.FullName && p.EmployeeCode == model.EmployeeCode).FirstOrDefault();
-                        if (nhanVien != null)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Thêm mới nhân viên thành công.";
-                            respone.Data = nhanVien.EmployeeId;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            respone.Status = 0;
-                            respone.Message = "Thêm mới nhân viên không thành công.";
-                            respone.Data = null;
-                            return createResponse();
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Thêm mới nhân viên thành công.";
+                        respone.Data = nhanVien.EmployeeId;
+                        return createResponse();
                     }
+                    else
+                    {
+                        respone.Status = 0;
+                        respone.Message = "Thêm mới nhân viên không thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+
                 }
             }
             catch (Exception ex)
@@ -186,22 +184,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var nhanVien = _dbContext.Category_Employee.Where(p => p.EmployeeId == model.EmployeeId).FirstOrDefault();
+                if (nhanVien == null)
                 {
-                    var nhanVien = dbContext.Category_Employee.Where(p => p.EmployeeId == model.EmployeeId).FirstOrDefault();
-                    if (nhanVien == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại EmployeeId {model.EmployeeId}");
-                    }
-
-                    business_Category_Employee.EditCategory_Employee(model);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa nhân viên thành công.";
-                    respone.Data = model.EmployeeId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại EmployeeId {model.EmployeeId}");
                 }
+
+                business_Category_Employee.EditCategory_Employee(model);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa nhân viên thành công.";
+                respone.Data = model.EmployeeId;
+
+                return createResponse();
+
             }
             catch (Exception ex)
             {
@@ -218,12 +214,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Employee.Where(item => item.EmployeeId == employeeId).FirstOrDefault();
-                    target.Status = false;
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_Employee.Where(item => item.EmployeeId == employeeId).FirstOrDefault();
+                target.Status = false;
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa nhân viên thành công.";
                 respone.Data = null;

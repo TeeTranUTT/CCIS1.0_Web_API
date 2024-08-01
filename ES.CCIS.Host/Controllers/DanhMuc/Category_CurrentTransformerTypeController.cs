@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_CurrentTransformerType business_Category_CurrentTransformerType = new Business_Category_CurrentTransformerType();
+        private readonly CCISContext _dbContext;
+
+        public Category_CurrentTransformerTypeController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_CurrentTransformerTypeManager")]
@@ -25,44 +31,41 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_CurrentTransformerType.Where(item => item.Status == true).Select(item => new Category_CurrentTransformerTypeModel
                 {
-                    var query = db.Category_CurrentTransformerType.Where(item => item.Status == true).Select(item => new Category_CurrentTransformerTypeModel
-                    {
-                        Accuracy = item.Accuracy,
-                        ConnectionRatio = item.ConnectionRatio,
-                        Description = item.Description,
-                        NumberOfPhases = item.NumberOfPhases,
-                        Status = item.Status,
-                        TypeCode = item.TypeCode,
-                        TypeName = item.TypeName,
-                        Voltage = item.Voltage,
-                        CTTypeId = item.CTTypeId,
-                        TestingDay = item.TestingDay
-                    });
+                    Accuracy = item.Accuracy,
+                    ConnectionRatio = item.ConnectionRatio,
+                    Description = item.Description,
+                    NumberOfPhases = item.NumberOfPhases,
+                    Status = item.Status,
+                    TypeCode = item.TypeCode,
+                    TypeName = item.TypeName,
+                    Voltage = item.Voltage,
+                    CTTypeId = item.CTTypeId,
+                    TestingDay = item.TestingDay
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_CurrentTransformerTypeModel>)query.Where(item => item.TypeName.Contains(search) || item.TypeCode.Contains(search));
-                    }
-
-                    var pagedCurrentTransformerType = (IPagedList<Category_CurrentTransformerTypeModel>)query.OrderBy(p => p.CTTypeId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedCurrentTransformerType.PageNumber,
-                        pagedCurrentTransformerType.PageSize,
-                        pagedCurrentTransformerType.TotalItemCount,
-                        pagedCurrentTransformerType.PageCount,
-                        pagedCurrentTransformerType.HasNextPage,
-                        pagedCurrentTransformerType.HasPreviousPage,
-                        CurrentTransformerTypes = pagedCurrentTransformerType.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách chủng loại TI thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_CurrentTransformerTypeModel>)query.Where(item => item.TypeName.Contains(search) || item.TypeCode.Contains(search));
                 }
+
+                var pagedCurrentTransformerType = (IPagedList<Category_CurrentTransformerTypeModel>)query.OrderBy(p => p.CTTypeId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedCurrentTransformerType.PageNumber,
+                    pagedCurrentTransformerType.PageSize,
+                    pagedCurrentTransformerType.TotalItemCount,
+                    pagedCurrentTransformerType.PageCount,
+                    pagedCurrentTransformerType.HasNextPage,
+                    pagedCurrentTransformerType.HasPreviousPage,
+                    CurrentTransformerTypes = pagedCurrentTransformerType.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách chủng loại TI thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -83,42 +86,40 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"cTTypeId {cTTypeId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var currentTransformerType = _dbContext.Category_CurrentTransformerType.Where(p => p.CTTypeId == cTTypeId).Select(item => new Category_CurrentTransformerTypeModel
                 {
-                    var currentTransformerType = dbContext.Category_CurrentTransformerType.Where(p => p.CTTypeId == cTTypeId).Select(item => new Category_CurrentTransformerTypeModel
-                    {
-                        Accuracy = item.Accuracy,
-                        ConnectionRatio = item.ConnectionRatio,
-                        Description = item.Description,
-                        NumberOfPhases = item.NumberOfPhases,
-                        Status = item.Status,
-                        TypeCode = item.TypeCode,
-                        TypeName = item.TypeName,
-                        Voltage = item.Voltage,
-                        CTTypeId = item.CTTypeId,
-                        TestingDay = item.TestingDay
-                    });
+                    Accuracy = item.Accuracy,
+                    ConnectionRatio = item.ConnectionRatio,
+                    Description = item.Description,
+                    NumberOfPhases = item.NumberOfPhases,
+                    Status = item.Status,
+                    TypeCode = item.TypeCode,
+                    TypeName = item.TypeName,
+                    Voltage = item.Voltage,
+                    CTTypeId = item.CTTypeId,
+                    TestingDay = item.TestingDay
+                });
 
-                    if (currentTransformerType?.Any() == true)
+                if (currentTransformerType?.Any() == true)
+                {
+                    var response = currentTransformerType.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = currentTransformerType.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin chủng loại TI thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Chủng loại TI {response.TypeName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin chủng loại TI thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Chủng loại TI có CurrentTransformerTypeId {cTTypeId} không tồn tại.");
+                        throw new ArgumentException($"Chủng loại TI {response.TypeName} đã bị vô hiệu.");
                     }
                 }
+                else
+                {
+                    throw new ArgumentException($"Chủng loại TI có CurrentTransformerTypeId {cTTypeId} không tồn tại.");
+                }
+
             }
             catch (Exception ex)
             {
@@ -144,23 +145,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     business_Category_CurrentTransformerType.AddCategory_CurrentTransformerType(model);
 
-                    using (var dbContext = new CCISContext())
+                    var chungLoaiTI = _dbContext.Category_CurrentTransformerType.Where(p => p.TypeName == model.TypeName && p.TypeCode == model.TypeCode).FirstOrDefault();
+                    if (chungLoaiTI != null)
                     {
-                        var chungLoaiTI = dbContext.Category_CurrentTransformerType.Where(p => p.TypeName == model.TypeName && p.TypeCode == model.TypeCode).FirstOrDefault();
-                        if (chungLoaiTI != null)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Thêm mới chủng loại TI thành công.";
-                            respone.Data = chungLoaiTI.CTTypeId;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            respone.Status = 0;
-                            respone.Message = "Thêm mới chủng loại TI không thành công.";
-                            respone.Data = null;
-                            return createResponse();
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Thêm mới chủng loại TI thành công.";
+                        respone.Data = chungLoaiTI.CTTypeId;
+                        return createResponse();
+                    }
+                    else
+                    {
+                        respone.Status = 0;
+                        respone.Message = "Thêm mới chủng loại TI không thành công.";
+                        respone.Data = null;
+                        return createResponse();
                     }
                 }
             }
@@ -178,10 +176,8 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         public HttpResponseMessage EditCategory_CurrentTransformerType(Category_CurrentTransformerTypeModel model)
         {
             try
-            {
-                using (var dbContext = new CCISContext())
-                {
-                    var chungLoaiTI = dbContext.Category_CurrentTransformerType.Where(p => p.CTTypeId == model.CTTypeId).FirstOrDefault();
+            {                
+                    var chungLoaiTI = _dbContext.Category_CurrentTransformerType.Where(p => p.CTTypeId == model.CTTypeId).FirstOrDefault();
                     if (chungLoaiTI == null)
                     {
                         throw new ArgumentException($"Không tồn tại CurrentTransformerTypeId {model.CTTypeId}");
@@ -201,9 +197,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                         respone.Data = model.CTTypeId;
 
                         return createResponse();
-                    }
-
-                }
+                    }                
             }
             catch (Exception ex)
             {
@@ -220,12 +214,9 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_CurrentTransformerType.Where(item => item.CTTypeId == cTTypeId).FirstOrDefault();
-                    target.Status = false;
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_CurrentTransformerType.Where(item => item.CTTypeId == cTTypeId).FirstOrDefault();
+                target.Status = false;
+                _dbContext.SaveChanges();
                 respone.Status = 1;
                 respone.Message = "Xóa chủng loại TI thành công.";
                 respone.Data = null;

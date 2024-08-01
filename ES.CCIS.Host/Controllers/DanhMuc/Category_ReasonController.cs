@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Reason businessReason = new Business_Category_Reason();
+        private readonly CCISContext _dbContext;
+
+        public Category_ReasonController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_ReasonManager")]
@@ -25,43 +31,40 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Reason.Select(item => new Category_ReasonModel
                 {
-                    var query = db.Category_Reason.Select(item => new Category_ReasonModel
-                    {
-                        Group = item.Group,
-                        ReasonCode = item.ReasonCode,
-                        ReasonId = item.ReasonId,
-                        ReasonName = item.ReasonName
-                    });
+                    Group = item.Group,
+                    ReasonCode = item.ReasonCode,
+                    ReasonId = item.ReasonId,
+                    ReasonName = item.ReasonName
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_ReasonModel>)query.Where(item => item.ReasonName.Contains(search) || item.ReasonCode.Contains(search));
-                    }
-
-                    if (group != null)
-                    {
-                        query = (IQueryable<Category_ReasonModel>)query.Where(item => item.Group == group);
-                    }
-
-                    var pagedReason = (IPagedList<Category_ReasonModel>)query.OrderBy(p => p.ReasonId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedReason.PageNumber,
-                        pagedReason.PageSize,
-                        pagedReason.TotalItemCount,
-                        pagedReason.PageCount,
-                        pagedReason.HasNextPage,
-                        pagedReason.HasPreviousPage,
-                        Reasons = pagedReason.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách lý do thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_ReasonModel>)query.Where(item => item.ReasonName.Contains(search) || item.ReasonCode.Contains(search));
                 }
+
+                if (group != null)
+                {
+                    query = (IQueryable<Category_ReasonModel>)query.Where(item => item.Group == group);
+                }
+
+                var pagedReason = (IPagedList<Category_ReasonModel>)query.OrderBy(p => p.ReasonId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedReason.PageNumber,
+                    pagedReason.PageSize,
+                    pagedReason.TotalItemCount,
+                    pagedReason.PageCount,
+                    pagedReason.HasNextPage,
+                    pagedReason.HasPreviousPage,
+                    Reasons = pagedReason.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách lý do thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -82,30 +85,28 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"ReasonId {reasonId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+
+                var reason = _dbContext.Category_Reason.Where(p => p.ReasonId == reasonId).Select(item => new Category_ReasonModel
                 {
-                    var reason = dbContext.Category_Reason.Where(p => p.ReasonId == reasonId).Select(item => new Category_ReasonModel
-                    {
-                        Group = item.Group,
-                        ReasonCode = item.ReasonCode,
-                        ReasonId = item.ReasonId,
-                        ReasonName = item.ReasonName
-                    });
+                    Group = item.Group,
+                    ReasonCode = item.ReasonCode,
+                    ReasonId = item.ReasonId,
+                    ReasonName = item.ReasonName
+                });
 
-                    if (reason?.Any() == true)
-                    {
-                        var response = reason.FirstOrDefault();
+                if (reason?.Any() == true)
+                {
+                    var response = reason.FirstOrDefault();
 
-                        respone.Status = 1;
-                        respone.Message = "Lấy thông tin lý do thành công.";
-                        respone.Data = response;
-                        return createResponse();
+                    respone.Status = 1;
+                    respone.Message = "Lấy thông tin lý do thành công.";
+                    respone.Data = response;
+                    return createResponse();
 
-                    }
-                    else
-                    {
-                        throw new ArgumentException($"Lý do có ReasonId {reasonId} không tồn tại.");
-                    }
+                }
+                else
+                {
+                    throw new ArgumentException($"Lý do có ReasonId {reasonId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -125,23 +126,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
             {
                 businessReason.AddCategory_Reason(model);
 
-                using (var dbContext = new CCISContext())
+                var lyDo = _dbContext.Category_Reason.Where(p => p.ReasonName == model.ReasonName && p.ReasonCode == model.ReasonCode).FirstOrDefault();
+                if (lyDo != null)
                 {
-                    var lyDo = dbContext.Category_Reason.Where(p => p.ReasonName == model.ReasonName && p.ReasonCode == model.ReasonCode).FirstOrDefault();
-                    if (lyDo != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới lý do thành công.";
-                        respone.Data = lyDo.ReasonId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới lý do không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới lý do thành công.";
+                    respone.Data = lyDo.ReasonId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới lý do không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
 
             }
@@ -160,22 +158,19 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var lyDo = _dbContext.Category_Reason.Where(p => p.ReasonId == model.ReasonId).FirstOrDefault();
+                if (lyDo == null)
                 {
-                    var lyDo = dbContext.Category_Reason.Where(p => p.ReasonId == model.ReasonId).FirstOrDefault();
-                    if (lyDo == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại ReasonId {model.ReasonId}");
-                    }
-
-                    businessReason.EditCategory_Reason(model);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa lý do thành công.";
-                    respone.Data = model.ReasonId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại ReasonId {model.ReasonId}");
                 }
+
+                businessReason.EditCategory_Reason(model);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa lý do thành công.";
+                respone.Data = model.ReasonId;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -192,12 +187,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Reason.Where(item => item.ReasonId == reasonId).FirstOrDefault();
-                    db.Category_Reason.Remove(target);
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_Reason.Where(item => item.ReasonId == reasonId).FirstOrDefault();
+                _dbContext.Category_Reason.Remove(target);
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa lý do thành công.";
                 respone.Data = null;

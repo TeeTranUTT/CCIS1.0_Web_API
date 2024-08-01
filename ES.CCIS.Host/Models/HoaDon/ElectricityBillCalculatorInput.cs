@@ -44,4 +44,48 @@ namespace ES.CCIS.Host.Models.HoaDon
         public int Month { get; set; }
         public int Year { get; set; }
     }
+
+    public class GetAllValueInput
+    {
+        public List<ListBill_ElectricityBillAdjustmentModel> MyArrayCustomer { get; set; }
+        public List<List_ElectricityBillAdjustmentDetailModel> MyArrayBillDetail { get; set; }
+        public string AdjustmentType { get; set; }
+        public string ReportNumber { get; set; }
+        public DateTime CreateDate { get; set; }
+        public int ReasonId { get; set; }
+        public int TermAdjustment { get; set; }
+        public List<Bill_ElectricityBillAdjustmentServicesModel> BillAdjustmentServicesModel { get; set; }
+    }
+
+    public class GetAllValue_HBInput
+    {
+        public string PhoneNumber { get; set; }
+        public int BillAdjustmentId { get; set; }
+        public string AdjustmentType { get; set; }
+        public string ReportNumber { get; set; }
+        public DateTime CreateDate { get; set; }
+        public int ReasonId { get; set; }
+        public int TermAdjustment { get; set; }
+    }
+
+    public class ElectricityBill_HBInput
+    {
+        public string ReportNumber { get; set; }
+        public decimal BillAdjustmentId { get; set; }
+        public int TermAdjustment { get; set; }
+        public DateTime CreateDate { get; set; }
+        public int ReasonId { get; set; }
+    }
+
+    public class Category_ServiceModelDTO
+    {
+        public int ServiceId { get; set; }
+        public int DepartmentId { get; set; }
+        public bool IsDelete { get; set; }
+        public string ServiceName { get; set; }
+        public string Unit { get; set; }
+        public int? Quantity { get; set; }
+        public int? Price { get; set; }
+        public int? Total { get; set; }
+    }
 }

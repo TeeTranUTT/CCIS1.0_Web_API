@@ -18,10 +18,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department business_Administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Team businessTeam = new Business_Category_Team();
-        private readonly CCISContext dbContext;
+        private readonly CCISContext _dbContext;
         public Category_TeamController()
         {
-            dbContext = new CCISContext();
+            _dbContext = new CCISContext();
         }
         #region Danh mục đội
         [HttpGet]
@@ -40,40 +40,37 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //list đơn vị con của user đăng nhập
                 var lstDepCombo = DepartmentHelper.GetChildDepIds(business_Administrator_Department.GetIddv(userInfo.UserName));
 
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Team.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_TeamModel
                 {
-                    var query = db.Category_Team.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_TeamModel
-                    {
-                        TeamId = item.TeamId,
-                        DepartmentId = item.DepartmentId,
-                        TeamName = item.TeamName,
-                        TeamCode = item.TeamCode,
-                        PhoneNumber = item.PhoneNumber,
-                        Status = item.Status
-                    });
+                    TeamId = item.TeamId,
+                    DepartmentId = item.DepartmentId,
+                    TeamName = item.TeamName,
+                    TeamCode = item.TeamCode,
+                    PhoneNumber = item.PhoneNumber,
+                    Status = item.Status
+                });
 
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_TeamModel>)query.Where(item => item.TeamName.Contains(search) || item.TeamCode.Contains(search));
-                    }
-                    var pagedTeam = (IPagedList<Category_TeamModel>)query.OrderBy(p => p.TeamId).ToPagedList(pageNumber, pageSize);
-                    var response = new
-                    {
-                        pagedTeam.PageNumber,
-                        pagedTeam.PageSize,
-                        pagedTeam.TotalItemCount,
-                        pagedTeam.PageCount,
-                        pagedTeam.HasNextPage,
-                        pagedTeam.HasPreviousPage,
-                        Teams = pagedTeam.ToList()
-                    };
-
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách đội thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_TeamModel>)query.Where(item => item.TeamName.Contains(search) || item.TeamCode.Contains(search));
                 }
+                var pagedTeam = (IPagedList<Category_TeamModel>)query.OrderBy(p => p.TeamId).ToPagedList(pageNumber, pageSize);
+                var response = new
+                {
+                    pagedTeam.PageNumber,
+                    pagedTeam.PageSize,
+                    pagedTeam.TotalItemCount,
+                    pagedTeam.PageCount,
+                    pagedTeam.HasNextPage,
+                    pagedTeam.HasPreviousPage,
+                    Teams = pagedTeam.ToList()
+                };
+
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách đội thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -95,7 +92,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                     throw new ArgumentException($"teamId {teamId} không hợp lệ.");
                 }
 
-                var team = dbContext.Category_Team.Where(p => p.TeamId == teamId).Select(p => new Category_TeamModel
+                var team = _dbContext.Category_Team.Where(p => p.TeamId == teamId).Select(p => new Category_TeamModel
                 {
                     TeamId = p.TeamId,
                     DepartmentId = p.DepartmentId,
@@ -141,25 +138,22 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var listCategory = db.Category_Team
-                        .Where(item => item.DepartmentId == departmentId && item.Status == true)
-                        .Select(item => new Category_TeamModel
-                        {
-                            TeamId = item.TeamId,
-                            TeamCode = item.TeamCode,
-                            TeamName = item.TeamName,
-                            DepartmentId = item.DepartmentId,
-                            PhoneNumber = item.PhoneNumber,
-                            Status = item.Status
-                        }).ToList();
+                var listCategory = _dbContext.Category_Team
+                    .Where(item => item.DepartmentId == departmentId && item.Status == true)
+                    .Select(item => new Category_TeamModel
+                    {
+                        TeamId = item.TeamId,
+                        TeamCode = item.TeamCode,
+                        TeamName = item.TeamName,
+                        DepartmentId = item.DepartmentId,
+                        PhoneNumber = item.PhoneNumber,
+                        Status = item.Status
+                    }).ToList();
 
-                    respone.Status = 1;
-                    respone.Message = "Lấy thông tin đội thành công.";
-                    respone.Data = listCategory;
-                    return createResponse();
-                }
+                respone.Status = 1;
+                respone.Message = "Lấy thông tin đội thành công.";
+                respone.Data = listCategory;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -185,23 +179,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 businessTeam.AddCategory_Team(team);
 
-                using (var dbContext = new CCISContext())
+                var doi = _dbContext.Category_Team.Where(p => p.TeamName == team.TeamName && p.TeamCode == team.TeamCode).FirstOrDefault();
+                if (doi != null)
                 {
-                    var doi = dbContext.Category_Team.Where(p => p.TeamName == team.TeamName && p.TeamCode == team.TeamCode).FirstOrDefault();
-                    if (doi != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới đội thành công.";
-                        respone.Data = doi.TeamId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới đội không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới đội thành công.";
+                    respone.Data = doi.TeamId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới đội không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
             catch (Exception ex)
@@ -219,29 +210,26 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var doi = _dbContext.Category_Team.Where(p => p.TeamId == team.TeamId).FirstOrDefault();
+                if (doi == null)
                 {
-                    var doi = dbContext.Category_Team.Where(p => p.TeamId == team.TeamId).FirstOrDefault();
-                    if (doi == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại TeamId {team.TeamId}");
-                    }
-
-                    #region Get DepartmentId From Token
-
-                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
-
-                    team.DepartmentId = departmentId;
-                    #endregion
-
-                    businessTeam.EditCategory_Team(team);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa đội thành công.";
-                    respone.Data = team.TeamId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại TeamId {team.TeamId}");
                 }
+
+                #region Get DepartmentId From Token
+
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                team.DepartmentId = departmentId;
+                #endregion
+
+                businessTeam.EditCategory_Team(team);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa đội thành công.";
+                respone.Data = team.TeamId;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -258,12 +246,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Team.Where(item => item.TeamId == teamId).FirstOrDefault();
-                    target.Status = false;
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_Team.Where(item => item.TeamId == teamId).FirstOrDefault();
+                target.Status = false;
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa đội thành công.";
                 respone.Data = null;

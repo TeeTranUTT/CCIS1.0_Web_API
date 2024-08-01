@@ -20,6 +20,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
     {
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Category_Service businessService = new Business_Category_Service();
+        private readonly CCISContext _dbContext;
+
+        public ServiceController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_ServiceManager")]
@@ -31,43 +37,41 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                     departmentId = TokenHelper.GetDepartmentIdFromToken();
                 //list đơn vị con của đơn vị được search
                 var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Service.Where(item => listDepartments.Contains(item.DepartmentId) && item.IsDelete == false).Select(item => new Category_ServiceModel
                 {
-                    var query = db.Category_Service.Where(item => listDepartments.Contains(item.DepartmentId) && item.IsDelete == false).Select(item => new Category_ServiceModel
-                    {
-                        ServiceId = item.ServiceId,
-                        DepartmentId = item.DepartmentId,
-                        ServiceName = item.ServiceName,
-                        ServiceCode = item.ServiceCode,
-                        IsDelete = item.IsDelete,
-                        Unit = item.Unit,
-                        Quantity = item.Quantity,
-                        Price = item.Price,
-                        Total = item.Total
-                    });
+                    ServiceId = item.ServiceId,
+                    DepartmentId = item.DepartmentId,
+                    ServiceName = item.ServiceName,
+                    ServiceCode = item.ServiceCode,
+                    IsDelete = item.IsDelete,
+                    Unit = item.Unit,
+                    Quantity = item.Quantity,
+                    Price = item.Price,
+                    Total = item.Total
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_ServiceModel>)query.Where(item => item.ServiceName.Contains(search));
-                    }
-
-                    var paged = (IPagedList<Category_ServiceModel>)query.OrderBy(p => p.ServiceId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        paged.PageNumber,
-                        paged.PageSize,
-                        paged.TotalItemCount,
-                        paged.PageCount,
-                        paged.HasNextPage,
-                        paged.HasPreviousPage,
-                        Services = paged.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách dịch vụ thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_ServiceModel>)query.Where(item => item.ServiceName.Contains(search));
                 }
+
+                var paged = (IPagedList<Category_ServiceModel>)query.OrderBy(p => p.ServiceId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    paged.PageNumber,
+                    paged.PageSize,
+                    paged.TotalItemCount,
+                    paged.PageCount,
+                    paged.HasNextPage,
+                    paged.HasPreviousPage,
+                    Services = paged.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách dịch vụ thành công.";
+                respone.Data = response;
+                return createResponse();
+
             }
             catch (Exception ex)
             {
@@ -84,43 +88,40 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var categoryService =
-                        db.Category_Service.Where(item => item.ServiceId.Equals(serviceId))
-                            .Select(item => new Category_ServiceModel
-                            {
-                                ServiceId = item.ServiceId,
-                                DepartmentId = item.DepartmentId,
-                                IsDelete = item.IsDelete,
-                                ServiceName = item.ServiceName,
-                                ServiceCode = item.ServiceCode,
-                                Unit = item.Unit,
-                                Quantity = item.Quantity,
-                                Price = item.Price,
-                                Total = item.Total,
-                                DepartmentName = (db.Administrator_Department.Where(a => a.DepartmentId == item.DepartmentId).Select(a => a.DepartmentName).FirstOrDefault())
-                            });
+                var categoryService =
+                    _dbContext.Category_Service.Where(item => item.ServiceId.Equals(serviceId))
+                        .Select(item => new Category_ServiceModel
+                        {
+                            ServiceId = item.ServiceId,
+                            DepartmentId = item.DepartmentId,
+                            IsDelete = item.IsDelete,
+                            ServiceName = item.ServiceName,
+                            ServiceCode = item.ServiceCode,
+                            Unit = item.Unit,
+                            Quantity = item.Quantity,
+                            Price = item.Price,
+                            Total = item.Total,
+                            DepartmentName = (_dbContext.Administrator_Department.Where(a => a.DepartmentId == item.DepartmentId).Select(a => a.DepartmentName).FirstOrDefault())
+                        });
 
-                    if (categoryService?.Any() == true)
+                if (categoryService?.Any() == true)
+                {
+                    var response = categoryService.FirstOrDefault();
+                    if (response.IsDelete == EnumMethod.TrangThai.Active)
                     {
-                        var response = categoryService.FirstOrDefault();
-                        if (response.IsDelete == EnumMethod.TrangThai.Active)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin dịch vụ thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Dịch vụ {response.ServiceName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin dịch vụ thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Dịch vụ có ServiceId {serviceId} không tồn tại.");
+                        throw new ArgumentException($"Dịch vụ {response.ServiceName} đã bị vô hiệu.");
                     }
+                }
+                else
+                {
+                    throw new ArgumentException($"Dịch vụ có ServiceId {serviceId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -147,23 +148,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 businessService.AddCategory_Service(service);
 
-                using (var dbContext = new CCISContext())
+                var dichVu = _dbContext.Category_Service.Where(p => p.ServiceName == service.ServiceName && p.ServiceCode == service.ServiceCode).FirstOrDefault();
+                if (dichVu != null)
                 {
-                    var dichVu = dbContext.Category_Service.Where(p => p.ServiceName == service.ServiceName && p.ServiceCode == service.ServiceCode).FirstOrDefault();
-                    if (dichVu != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới dịch vụ thành công.";
-                        respone.Data = dichVu.ServiceId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới dịch vụ không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới dịch vụ thành công.";
+                    respone.Data = dichVu.ServiceId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới dịch vụ không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
             catch (Exception ex)
@@ -181,29 +179,26 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var dichVu = _dbContext.Category_Service.Where(p => p.ServiceId == service.ServiceId).FirstOrDefault();
+                if (dichVu == null)
                 {
-                    var dichVu = dbContext.Category_Service.Where(p => p.ServiceId == service.ServiceId).FirstOrDefault();
-                    if (dichVu == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại ServiceId {service.ServiceId}");
-                    }
-
-                    #region Get DepartmentId From Token
-
-                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
-
-                    service.DepartmentId = departmentId;
-                    #endregion
-
-                    businessService.EditCategory_Service(service);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa dịch vụ thành công.";
-                    respone.Data = service.ServiceId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại ServiceId {service.ServiceId}");
                 }
+
+                #region Get DepartmentId From Token
+
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                service.DepartmentId = departmentId;
+                #endregion
+
+                businessService.EditCategory_Service(service);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa dịch vụ thành công.";
+                respone.Data = service.ServiceId;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -220,12 +215,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Service.Where(item => item.ServiceId == serviceId).FirstOrDefault();
-                    target.IsDelete = true;
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_Service.Where(item => item.ServiceId == serviceId).FirstOrDefault();
+                target.IsDelete = true;
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa dịch vụ thành công.";
                 respone.Data = null;

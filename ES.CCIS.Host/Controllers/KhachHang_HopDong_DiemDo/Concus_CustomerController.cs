@@ -22,6 +22,12 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Concus_Customer business_Concus_Customer = new Business_Concus_Customer();
         private readonly Business_Administrator_Parameter vParameters = new Business_Administrator_Parameter();
+        private readonly CCISContext _dbContext;
+
+        public Concus_CustomerController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         #region Quản lý khách hàng
         [HttpGet]
@@ -38,52 +44,49 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 //list đơn vị con của đơn vị được search
                 var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
 
-                using (var db = new CCISContext())
+                var query = _dbContext.Concus_Customer.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == 1).Select(item => new Concus_CustomerModel
                 {
-                    var query = db.Concus_Customer.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == 1).Select(item => new Concus_CustomerModel
-                    {
-                        CustomerId = item.CustomerId,
-                        CustomerCode = item.CustomerCode,
-                        DepartmentId = item.DepartmentId,
-                        Name = item.Name,
-                        Address = item.Address,
-                        InvoiceAddress = item.InvoiceAddress,
-                        Gender = item.Gender,
-                        Email = item.Email,
-                        PhoneNumber = item.PhoneNumber,
-                        TaxCode = item.TaxCode,
-                        Ratio = item.Ratio,
-                        BankAccount = item.BankAccount,
-                        BankName = item.BankName,
-                        Status = item.Status,
-                        CreateDate = item.CreateDate,
-                        CreateUser = item.CreateUser,
-                        PhoneCustomerCare = item.PhoneCustomerCare,
-                        ZaloCustomerCare = item.ZaloCustomerCare
-                    });
+                    CustomerId = item.CustomerId,
+                    CustomerCode = item.CustomerCode,
+                    DepartmentId = item.DepartmentId,
+                    Name = item.Name,
+                    Address = item.Address,
+                    InvoiceAddress = item.InvoiceAddress,
+                    Gender = item.Gender,
+                    Email = item.Email,
+                    PhoneNumber = item.PhoneNumber,
+                    TaxCode = item.TaxCode,
+                    Ratio = item.Ratio,
+                    BankAccount = item.BankAccount,
+                    BankName = item.BankName,
+                    Status = item.Status,
+                    CreateDate = item.CreateDate,
+                    CreateUser = item.CreateUser,
+                    PhoneCustomerCare = item.PhoneCustomerCare,
+                    ZaloCustomerCare = item.ZaloCustomerCare
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Concus_CustomerModel>)query.Where(item => item.Name.Contains(search) || item.CustomerCode.Contains(search) || item.PhoneCustomerCare.Contains(search) || item.Address.Contains(search) || item.TaxCode.Contains(search));
-                    }
-
-                    var pagedCustomer = (IPagedList<CustomerCodeModel>)query.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedCustomer.PageNumber,
-                        pagedCustomer.PageSize,
-                        pagedCustomer.TotalItemCount,
-                        pagedCustomer.PageCount,
-                        pagedCustomer.HasNextPage,
-                        pagedCustomer.HasPreviousPage,
-                        Customers = pagedCustomer.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách khách hàng thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Concus_CustomerModel>)query.Where(item => item.Name.Contains(search) || item.CustomerCode.Contains(search) || item.PhoneCustomerCare.Contains(search) || item.Address.Contains(search) || item.TaxCode.Contains(search));
                 }
+
+                var pagedCustomer = (IPagedList<CustomerCodeModel>)query.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedCustomer.PageNumber,
+                    pagedCustomer.PageSize,
+                    pagedCustomer.TotalItemCount,
+                    pagedCustomer.PageCount,
+                    pagedCustomer.HasNextPage,
+                    pagedCustomer.HasPreviousPage,
+                    Customers = pagedCustomer.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách khách hàng thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -104,81 +107,78 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 {
                     throw new ArgumentException($"CustomerId {customerId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var customer = _dbContext.Concus_Customer.Where(p => p.CustomerId == customerId).Select(item => new Concus_CustomerModel
                 {
-                    var customer = dbContext.Concus_Customer.Where(p => p.CustomerId == customerId).Select(item => new Concus_CustomerModel
+                    CustomerId = item.CustomerId,
+                    CustomerCode = item.CustomerCode,
+                    DepartmentId = item.DepartmentId,
+                    Name = item.Name,
+                    Address = item.Address,
+                    InvoiceAddress = item.InvoiceAddress,
+                    Gender = item.Gender,
+                    Email = item.Email,
+                    PhoneNumber = item.PhoneNumber,
+                    TaxCode = item.TaxCode,
+                    Ratio = item.Ratio,
+                    Fax = item.Fax,
+                    BankAccount = item.BankAccount,
+                    BankName = item.BankName,
+                    CreateDate = item.CreateDate,
+                    CreateUser = item.CreateUser,
+                    PhoneCustomerCare = item.PhoneCustomerCare,
+                    OccupationsGroupCode = item.OccupationsGroupCode,
+                    PaymentMethodsCode = item.PaymentMethodsCode,
+                    PurposeOfUse = item.PurposeOfUse,
+                    BuyerName = item.BuyerName,
+                    RelationsShip = _dbContext.Concus_Customer_Relationship.Where(x => x.CustomerId == item.CustomerId && x.DepartmentId == item.DepartmentId && !x.IsDelete).Select(
+                                x => new Concus_Customer_RelationshipModel
+                                {
+                                    CustomerId = item.CustomerId,
+                                    DepartmentId = item.DepartmentId,
+                                    Address = x.Address,
+                                    Email = x.Email,
+                                    CustomerRelationshipId = x.CustomerRelationshipId,
+                                    FullName = x.FullName,
+                                    Phone = x.Phone,
+                                    Relationship = x.Relationship,
+                                    CMT = x.CMT,
+                                    NoiCap = x.NoiCap,
+                                    NgayCap = x.NgayCap,
+                                    NguoiDaiDien = x.NguoiDaiDien,
+                                    NgayKyUyQuyen = x.NgayKyUyQuyen,
+                                    MST = x.MST,
+                                    GiayUyQuyen = x.GiayUyQuyen
+                                }).ToList()
+                });
+                if (customer?.Any() == true)
+                {
+                    var response = customer.FirstOrDefault();
+                    if (response.Status == EnumMethod.TrangThai.KichHoat)
                     {
-                        CustomerId = item.CustomerId,
-                        CustomerCode = item.CustomerCode,
-                        DepartmentId = item.DepartmentId,
-                        Name = item.Name,
-                        Address = item.Address,
-                        InvoiceAddress = item.InvoiceAddress,
-                        Gender = item.Gender,
-                        Email = item.Email,
-                        PhoneNumber = item.PhoneNumber,
-                        TaxCode = item.TaxCode,
-                        Ratio = item.Ratio,
-                        Fax = item.Fax,
-                        BankAccount = item.BankAccount,
-                        BankName = item.BankName,
-                        CreateDate = item.CreateDate,
-                        CreateUser = item.CreateUser,
-                        PhoneCustomerCare = item.PhoneCustomerCare,
-                        OccupationsGroupCode = item.OccupationsGroupCode,
-                        PaymentMethodsCode = item.PaymentMethodsCode,
-                        PurposeOfUse = item.PurposeOfUse,
-                        BuyerName = item.BuyerName,
-                        RelationsShip = dbContext.Concus_Customer_Relationship.Where(x => x.CustomerId == item.CustomerId && x.DepartmentId == item.DepartmentId && !x.IsDelete).Select(
-                                    x => new Concus_Customer_RelationshipModel
-                                    {
-                                        CustomerId = item.CustomerId,
-                                        DepartmentId = item.DepartmentId,
-                                        Address = x.Address,
-                                        Email = x.Email,
-                                        CustomerRelationshipId = x.CustomerRelationshipId,
-                                        FullName = x.FullName,
-                                        Phone = x.Phone,
-                                        Relationship = x.Relationship,
-                                        CMT = x.CMT,
-                                        NoiCap = x.NoiCap,
-                                        NgayCap = x.NgayCap,
-                                        NguoiDaiDien = x.NguoiDaiDien,
-                                        NgayKyUyQuyen = x.NgayKyUyQuyen,
-                                        MST = x.MST,
-                                        GiayUyQuyen = x.GiayUyQuyen
-                                    }).ToList()
-                    });
-                    if (customer?.Any() == true)
-                    {
-                        var response = customer.FirstOrDefault();
-                        if (response.Status == EnumMethod.TrangThai.KichHoat)
+                        var concusCustomerAdd = _dbContext.Concus_CustomerAdditionalInfo.FirstOrDefault(x => x.CustomerId == response.CustomerId);
+                        if (concusCustomerAdd != null)
                         {
-                            var concusCustomerAdd = dbContext.Concus_CustomerAdditionalInfo.FirstOrDefault(x => x.CustomerId == response.CustomerId);
-                            if (concusCustomerAdd != null)
-                            {
-                                response.CMT = concusCustomerAdd.CMT;
-                                response.NoiCap = concusCustomerAdd.NoiCap;
-                                response.NgayCap = concusCustomerAdd.NgayCap;
-                                response.NguoiDaiDien = concusCustomerAdd.NguoiDaiDien;
-                                response.GiayUyQuyen = concusCustomerAdd.GiayUyQuyen;
-                                response.NgayKyUyQuyen = concusCustomerAdd.NgayKyUyQuyen;
-                            }
+                            response.CMT = concusCustomerAdd.CMT;
+                            response.NoiCap = concusCustomerAdd.NoiCap;
+                            response.NgayCap = concusCustomerAdd.NgayCap;
+                            response.NguoiDaiDien = concusCustomerAdd.NguoiDaiDien;
+                            response.GiayUyQuyen = concusCustomerAdd.GiayUyQuyen;
+                            response.NgayKyUyQuyen = concusCustomerAdd.NgayKyUyQuyen;
+                        }
 
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin khách hàng thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Khách hàng {response.Name} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin khách hàng thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Khách hàng có customerId {customerId} không tồn tại.");
+                        throw new ArgumentException($"Khách hàng {response.Name} đã bị vô hiệu.");
                     }
+                }
+                else
+                {
+                    throw new ArgumentException($"Khách hàng có customerId {customerId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -224,27 +224,24 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
 
                         if (customerId > 0)
                         {
-                            using (var db = new CCISContext())
+                            var add = new Concus_CustomerAdditionalInfo
                             {
-                                var add = new Concus_CustomerAdditionalInfo
-                                {
-                                    CustomerId = customerId,
-                                    CMT = model.CMT,
-                                    NgayCap = model.NgayCap,
-                                    NoiCap = model.NoiCap,
-                                    NguoiDaiDien = model.NguoiDaiDien,
-                                    GiayUyQuyen = model.GiayUyQuyen,
-                                    NgayKyUyQuyen = model.NgayKyUyQuyen
-                                };
+                                CustomerId = customerId,
+                                CMT = model.CMT,
+                                NgayCap = model.NgayCap,
+                                NoiCap = model.NoiCap,
+                                NguoiDaiDien = model.NguoiDaiDien,
+                                GiayUyQuyen = model.GiayUyQuyen,
+                                NgayKyUyQuyen = model.NgayKyUyQuyen
+                            };
 
-                                db.Concus_CustomerAdditionalInfo.Add(add);
-                                db.SaveChanges();
+                            _dbContext.Concus_CustomerAdditionalInfo.Add(add);
+                            _dbContext.SaveChanges();
 
-                                respone.Status = 1;
-                                respone.Message = "Thêm mới khách hàng thành công.";
-                                respone.Data = customerId;
-                                return createResponse();
-                            }
+                            respone.Status = 1;
+                            respone.Message = "Thêm mới khách hàng thành công.";
+                            respone.Data = customerId;
+                            return createResponse();
                         }
                         else
                         {
@@ -278,91 +275,85 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var customer = _dbContext.Concus_Customer.Where(p => p.CustomerId == model.CustomerId).FirstOrDefault();
+                if (customer == null)
                 {
-                    var customer = dbContext.Concus_Customer.Where(p => p.CustomerId == model.CustomerId).FirstOrDefault();
-                    if (customer == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại CustomerId {model.CustomerId}");
-                    }
+                    throw new ArgumentException($"Không tồn tại CustomerId {model.CustomerId}");
+                }
 
-                    #region Get DepartmentId From Token
+                #region Get DepartmentId From Token
 
-                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
-                    var userId = TokenHelper.GetUserIdFromToken();
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                var userId = TokenHelper.GetUserIdFromToken();
 
-                    model.DepartmentId = departmentId;
-                    #endregion
-                    string strCheckInfor = business_Concus_Customer.CheckCustomerModal(model);
-                    if (strCheckInfor != "OK")
+                model.DepartmentId = departmentId;
+                #endregion
+                string strCheckInfor = business_Concus_Customer.CheckCustomerModal(model);
+                if (strCheckInfor != "OK")
+                {
+                    throw new ArgumentException($"{strCheckInfor}");
+                }
+                else if (business_Concus_Customer.CheckExistCustomerCode_Edit(model.CustomerCode, model.CustomerId))
+                {
+                    business_Concus_Customer.EditConcus_Customer(model);
+                    var add = _dbContext.Concus_CustomerAdditionalInfo.FirstOrDefault(x => x.CustomerId == model.CustomerId);
+                    if (add != null)
                     {
-                        throw new ArgumentException($"{strCheckInfor}");
-                    }
-                    else if (business_Concus_Customer.CheckExistCustomerCode_Edit(model.CustomerCode, model.CustomerId))
-                    {
-                        business_Concus_Customer.EditConcus_Customer(model);
-                        using (var db = new CCISContext())
+                        // Add Log
+                        var log = new Concus_CustomerAdditionalInfo_Log
                         {
-                            var add = db.Concus_CustomerAdditionalInfo.FirstOrDefault(x => x.CustomerId == model.CustomerId);
-                            if (add != null)
-                            {
-                                // Add Log
-                                var log = new Concus_CustomerAdditionalInfo_Log
-                                {
-                                    CustomerId = add.CustomerId,
-                                    CMT = add.CMT,
-                                    NgayCap = add.NgayCap,
-                                    NoiCap = add.NoiCap,
-                                    NguoiDaiDien = add.NguoiDaiDien,
-                                    GiayUyQuyen = add.GiayUyQuyen,
-                                    NgayKyUyQuyen = add.NgayKyUyQuyen,
-                                    CreatedDate = DateTime.Now,
-                                    CreatedUser = userId
-                                };
-                                db.Concus_CustomerAdditionalInfo_Log.Add(log);
+                            CustomerId = add.CustomerId,
+                            CMT = add.CMT,
+                            NgayCap = add.NgayCap,
+                            NoiCap = add.NoiCap,
+                            NguoiDaiDien = add.NguoiDaiDien,
+                            GiayUyQuyen = add.GiayUyQuyen,
+                            NgayKyUyQuyen = add.NgayKyUyQuyen,
+                            CreatedDate = DateTime.Now,
+                            CreatedUser = userId
+                        };
+                        _dbContext.Concus_CustomerAdditionalInfo_Log.Add(log);
 
-                                // Cập nhật thay đổi bảng chính
-                                add.CMT = model.CMT;
-                                add.NoiCap = model.NoiCap;
-                                add.NgayCap = model.NgayCap;
-                                add.NguoiDaiDien = model.NguoiDaiDien;
-                                add.GiayUyQuyen = model.GiayUyQuyen;
-                                add.NgayKyUyQuyen = model.NgayKyUyQuyen;
+                        // Cập nhật thay đổi bảng chính
+                        add.CMT = model.CMT;
+                        add.NoiCap = model.NoiCap;
+                        add.NgayCap = model.NgayCap;
+                        add.NguoiDaiDien = model.NguoiDaiDien;
+                        add.GiayUyQuyen = model.GiayUyQuyen;
+                        add.NgayKyUyQuyen = model.NgayKyUyQuyen;
 
 
-                            }
-                            else
-                            {
-                                db.Concus_CustomerAdditionalInfo.Add(new Concus_CustomerAdditionalInfo
-                                {
-                                    CustomerId = model.CustomerId,
-                                    CMT = model.CMT,
-                                    NgayCap = model.NgayCap,
-                                    NoiCap = model.NoiCap,
-                                    NguoiDaiDien = model.NguoiDaiDien,
-                                    GiayUyQuyen = model.GiayUyQuyen,
-                                    NgayKyUyQuyen = model.NgayKyUyQuyen
-                                }); ;
-                            }
-                            db.SaveChanges();
-
-                            respone.Status = 1;
-                            respone.Message = "Chỉnh sửa khách hàng thành công.";
-                            respone.Data = model.CustomerId;
-
-                            return createResponse();
-                        }
                     }
                     else
                     {
-                        respone.Status = 0;
-                        respone.Message = "Chỉnh sửa khách hàng không thành công.";
-                        respone.Data = model.CustomerId;
-
-                        return createResponse();
+                        _dbContext.Concus_CustomerAdditionalInfo.Add(new Concus_CustomerAdditionalInfo
+                        {
+                            CustomerId = model.CustomerId,
+                            CMT = model.CMT,
+                            NgayCap = model.NgayCap,
+                            NoiCap = model.NoiCap,
+                            NguoiDaiDien = model.NguoiDaiDien,
+                            GiayUyQuyen = model.GiayUyQuyen,
+                            NgayKyUyQuyen = model.NgayKyUyQuyen
+                        }); ;
                     }
+                    _dbContext.SaveChanges();
 
+                    respone.Status = 1;
+                    respone.Message = "Chỉnh sửa khách hàng thành công.";
+                    respone.Data = model.CustomerId;
+
+                    return createResponse();
                 }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Chỉnh sửa khách hàng không thành công.";
+                    respone.Data = model.CustomerId;
+
+                    return createResponse();
+                }
+
             }
             catch (Exception ex)
             {
@@ -379,22 +370,19 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                var customer = _dbContext.Concus_Customer.Where(o => o.CustomerId == customerId).FirstOrDefault();
+                if (customer != null)
                 {
-                    var customer = db.Concus_Customer.Where(o => o.CustomerId == customerId).FirstOrDefault();
-                    if (customer != null)
-                    {
-                        customer.ZaloCustomerCare = null;
-                        db.SaveChanges();
-                        respone.Status = 1;
-                        respone.Message = "OK";
-                        respone.Data = null;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        throw new ArgumentException("Không tim thấy khách hàng này trong hệ thống");
-                    }
+                    customer.ZaloCustomerCare = null;
+                    _dbContext.SaveChanges();
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException("Không tim thấy khách hàng này trong hệ thống");
                 }
             }
             catch (Exception ex)
@@ -420,109 +408,106 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 var TDN = vParameters.GetParameterValue("CheDoTinhTienNuoc", "KHONGCO", departmentId);
                 List<object> data = new List<object>();
 
-                using (var dbContext = new CCISContext())
+                // lấy danh sách loại hợp đồng : thông tin hợp đồng
+                var Ds_HopDong = _dbContext.Category_ContractType.Where(item => item.Status == true).ToList();
+
+                // lấy danh sách loại điểm đo: điểm đo
+                var Ds_LoaiDiemDo = _dbContext.Category_ServicePointType.Select(item => new Category_ServicePointTypeModel
                 {
-                    // lấy danh sách loại hợp đồng : thông tin hợp đồng
-                    var Ds_HopDong = dbContext.Category_ContractType.Where(item => item.Status == true).ToList();
+                    ServicePointType = item.ServicePointType,
+                    Description = (_dbContext.Category_ServicePointType
+                        .Where(a => a.ServicePointTypeId.Equals(item.ServicePointType)).Select(a => a.Description)
+                        .FirstOrDefault())
 
-                    // lấy danh sách loại điểm đo: điểm đo
-                    var Ds_LoaiDiemDo = dbContext.Category_ServicePointType.Select(item => new Category_ServicePointTypeModel
+                }).Distinct().ToList();
+
+                // Lấy danh sách cấp điện áp: điểm đo
+                List<Category_PotentialModel> potential = new List<Category_PotentialModel>();
+                if (TDN == "TINH_PHI_THOAT_NUOC" || TDN == "TINH_PHI_BVE_MTRUONG" || TDN == "PHI_BVE_MTRUONG_0DONG")
+                {
+                    potential = _dbContext.Category_Potential.Where(item => item.Status == true).Select(item =>
+                    new Category_PotentialModel
                     {
-                        ServicePointType = item.ServicePointType,
-                        Description = (dbContext.Category_ServicePointType
-                            .Where(a => a.ServicePointTypeId.Equals(item.ServicePointType)).Select(a => a.Description)
-                            .FirstOrDefault())
+                        PotentialCode = item.PotentialCode,
+                        PotentialName = item.PotentialCode + "-" + item.PotentialName
 
-                    }).Distinct().ToList();
-
-                    // Lấy danh sách cấp điện áp: điểm đo
-                    List<Category_PotentialModel> potential = new List<Category_PotentialModel>();
-                    if (TDN == "TINH_PHI_THOAT_NUOC" || TDN == "TINH_PHI_BVE_MTRUONG" || TDN == "PHI_BVE_MTRUONG_0DONG")
-                    {
-                        potential = dbContext.Category_Potential.Where(item => item.Status == true).Select(item =>
-                        new Category_PotentialModel
-                        {
-                            PotentialCode = item.PotentialCode,
-                            PotentialName = item.PotentialCode + "-" + item.PotentialName
-
-                        }).ToList();
-                    }
-                    else
-                    {
-                        potential = dbContext.Category_Potential.Where(item => item.Status == true && item.PotentialCode != "0").Select(item =>
-                        new Category_PotentialModel
-                        {
-                            PotentialCode = item.PotentialCode,
-                            PotentialName = item.PotentialCode + "-" + item.PotentialName
-
-                        }).ToList();
-                    }
-
-                    // lấy sanh sách tổ: điểm đo
-                    var team = dbContext.Category_Team.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item => new Category_TeamModel
-                    {
-                        TeamId = item.TeamId,
-                        TeamName = item.TeamCode + "-" + item.TeamName,
-                        TeamCode = item.TeamCode,
-                        PhoneNumber = item.PhoneNumber
                     }).ToList();
-
-                    // lấy danh sách trạm : điểm đo
-                    var satiton = dbContext.Category_Satiton.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item =>
-                        new Category_SatitonModel
-                        {
-                            StationId = item.StationId,
-                            StationCode = item.StationCode,
-                            StationName = item.StationCode + "-" + item.StationName,
-                            Type = item.Type,
-                            Power = item.Power
-                        }).ToList();
-
-                    // lấy danh sách lộ: điểm đo
-                    var route = dbContext.Category_Route.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item => new Category_RouteModel
-                    {
-                        RouteId = item.RouteId,
-                        RouteCode = item.RouteCode,
-                        RouteName = item.RouteCode + "-" + item.RouteName,
-                        Type = item.Type,
-                        PotentialCode = item.PotentialCode
-                    }).ToList();
-
-                    // lấy danh sách sổ ghi chỉ số: điểm đo
-                    var figureBook = DepartmentHelper.GetFigureBook(userId, lstDepartmentId);
-                    figureBook = figureBook.Select(item => new Category_FigureBookModel
-                    {
-                        FigureBookId = item.FigureBookId,
-                        BookName = item.BookCode + "-" + item.BookName,
-                        BookType = item.BookType,
-                        TeamId = item.TeamId
-                    }).ToList();
-
-                    // lấy danh sách khu vực: điểm đo
-                    var khuvuc = dbContext.Category_Regions.ToList();
-                    var tilethue = dbContext.Category_TaxRatio.ToList().OrderBy(o => o.Seq);
-
-                    // lấy danh sách điểm đo chính: điểm đo
-                    // lấy danh sách  loại bộ chỉ số: áp giá
-                    // lấy danh sách đối tượng giá: áp giá
-                    // lấy ra ngành ngê: áp giá
-                    // lấy ra đơn giá: áp giá
-                    data.Add(Ds_HopDong);
-                    data.Add(Ds_LoaiDiemDo);
-                    data.Add(potential);
-                    data.Add(team);
-                    data.Add(satiton);
-                    data.Add(route);
-                    data.Add(figureBook);
-                    data.Add(khuvuc);
-                    data.Add(tilethue);
-
-                    respone.Status = 1;
-                    respone.Message = "Lấy thông tin danh mục thành công.";
-                    respone.Data = data;
-
-                    return createResponse();
                 }
+                else
+                {
+                    potential = _dbContext.Category_Potential.Where(item => item.Status == true && item.PotentialCode != "0").Select(item =>
+                    new Category_PotentialModel
+                    {
+                        PotentialCode = item.PotentialCode,
+                        PotentialName = item.PotentialCode + "-" + item.PotentialName
+
+                    }).ToList();
+                }
+
+                // lấy sanh sách tổ: điểm đo
+                var team = _dbContext.Category_Team.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item => new Category_TeamModel
+                {
+                    TeamId = item.TeamId,
+                    TeamName = item.TeamCode + "-" + item.TeamName,
+                    TeamCode = item.TeamCode,
+                    PhoneNumber = item.PhoneNumber
+                }).ToList();
+
+                // lấy danh sách trạm : điểm đo
+                var satiton = _dbContext.Category_Satiton.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item =>
+                    new Category_SatitonModel
+                    {
+                        StationId = item.StationId,
+                        StationCode = item.StationCode,
+                        StationName = item.StationCode + "-" + item.StationName,
+                        Type = item.Type,
+                        Power = item.Power
+                    }).ToList();
+
+                // lấy danh sách lộ: điểm đo
+                var route = _dbContext.Category_Route.Where(item => item.Status == true && lstDepartmentId.Contains(item.DepartmentId)).Select(item => new Category_RouteModel
+                {
+                    RouteId = item.RouteId,
+                    RouteCode = item.RouteCode,
+                    RouteName = item.RouteCode + "-" + item.RouteName,
+                    Type = item.Type,
+                    PotentialCode = item.PotentialCode
+                }).ToList();
+
+                // lấy danh sách sổ ghi chỉ số: điểm đo
+                var figureBook = DepartmentHelper.GetFigureBook(userId, lstDepartmentId);
+                figureBook = figureBook.Select(item => new Category_FigureBookModel
+                {
+                    FigureBookId = item.FigureBookId,
+                    BookName = item.BookCode + "-" + item.BookName,
+                    BookType = item.BookType,
+                    TeamId = item.TeamId
+                }).ToList();
+
+                // lấy danh sách khu vực: điểm đo
+                var khuvuc = _dbContext.Category_Regions.ToList();
+                var tilethue = _dbContext.Category_TaxRatio.ToList().OrderBy(o => o.Seq);
+
+                // lấy danh sách điểm đo chính: điểm đo
+                // lấy danh sách  loại bộ chỉ số: áp giá
+                // lấy danh sách đối tượng giá: áp giá
+                // lấy ra ngành ngê: áp giá
+                // lấy ra đơn giá: áp giá
+                data.Add(Ds_HopDong);
+                data.Add(Ds_LoaiDiemDo);
+                data.Add(potential);
+                data.Add(team);
+                data.Add(satiton);
+                data.Add(route);
+                data.Add(figureBook);
+                data.Add(khuvuc);
+                data.Add(tilethue);
+
+                respone.Status = 1;
+                respone.Message = "Lấy thông tin danh mục thành công.";
+                respone.Data = data;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -540,18 +525,16 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             try
             {
                 List<object> data = new List<object>();
-                using (var db = new CCISContext())
-                {
-                    // lấy danh sách loại điểm đo chính: điểm đo
-                    var listServicePointOfFigureBook = db.Concus_ServicePoint
-                        .Where(item => item.FigureBookId == figureBookId && item.Status == true).Select(item =>
-                            new Concus_ServicePointModel
-                            {
-                                PointId = item.PointId,
-                                PointCode = item.PointCode
-                            }).ToList();
-                    data.Add(listServicePointOfFigureBook);
-                }
+                // lấy danh sách loại điểm đo chính: điểm đo
+                var listServicePointOfFigureBook = _dbContext.Concus_ServicePoint
+                    .Where(item => item.FigureBookId == figureBookId && item.Status == true).Select(item =>
+                        new Concus_ServicePointModel
+                        {
+                            PointId = item.PointId,
+                            PointCode = item.PointCode
+                        }).ToList();
+                data.Add(listServicePointOfFigureBook);
+
                 respone.Status = 1;
                 respone.Message = "OK";
                 respone.Data = data;
@@ -580,44 +563,41 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 var figureBook = DepartmentHelper.GetFigureBook(userInfo, listDepartment);
 
                 // Truy vấn cơ sở dữ liệu
-                using (var db = new CCISContext())
+                var getStationCode = _dbContext.Category_Satiton
+                                       .Where(item => item.StationId == matchvalue)
+                                       .Select(item => item.StationCode)
+                                       .FirstOrDefault();
+
+                // Lấy phần tử được chọn
+                var selectedItem = _dbContext.Category_FigureBook
+                                     .Where(item => item.BookCode == getStationCode)
+                                     .Select(item => new Category_FigureBookModel
+                                     {
+                                         FigureBookId = item.FigureBookId,
+                                         BookName = item.BookCode + "-" + item.BookName,
+                                         BookType = item.BookType
+                                     })
+                                     .FirstOrDefault();
+
+                if (selectedItem != null)
                 {
-                    var getStationCode = db.Category_Satiton
-                                           .Where(item => item.StationId == matchvalue)
-                                           .Select(item => item.StationCode)
-                                           .FirstOrDefault();
-
-                    // Lấy phần tử được chọn
-                    var selectedItem = db.Category_FigureBook
-                                         .Where(item => item.BookCode == getStationCode)
-                                         .Select(item => new Category_FigureBookModel
-                                         {
-                                             FigureBookId = item.FigureBookId,
-                                             BookName = item.BookCode + "-" + item.BookName,
-                                             BookType = item.BookType
-                                         })
-                                         .FirstOrDefault();
-
-                    if (selectedItem != null)
+                    figureBook = figureBook.Select(item => new Category_FigureBookModel
                     {
-                        figureBook = figureBook.Select(item => new Category_FigureBookModel
-                        {
-                            FigureBookId = item.FigureBookId,
-                            BookName = item.BookCode + "-" + item.BookName,
-                            BookType = item.BookType
-                        }).ToList();
+                        FigureBookId = item.FigureBookId,
+                        BookName = item.BookCode + "-" + item.BookName,
+                        BookType = item.BookType
+                    }).ToList();
 
-                        // Đảm bảo không có phần tử nào trùng với phần tử đã chọn
-                        figureBook = figureBook.Where(item => item.FigureBookId != selectedItem.FigureBookId).ToList();
+                    // Đảm bảo không có phần tử nào trùng với phần tử đã chọn
+                    figureBook = figureBook.Where(item => item.FigureBookId != selectedItem.FigureBookId).ToList();
 
-                        // Chèn phần tử đã chọn vào đầu danh sách
-                        figureBook.Insert(0, selectedItem);
-                    }
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = figureBook.ToArray();
-                    return createResponse();
+                    // Chèn phần tử đã chọn vào đầu danh sách
+                    figureBook.Insert(0, selectedItem);
                 }
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = figureBook.ToArray();
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -636,17 +616,15 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             try
             {
                 List<object> data = new List<object>();
-                using (var db = new CCISContext())
-                {
-                    // lấy danh sách loại điểm đo chính: điểm đo
+                // lấy danh sách loại điểm đo chính: điểm đo
 
-                    var list = db.Category_ServicePointType.Where(item => item.ServicePointType == value).Select(item =>
-                        new Category_ServicePointTypeModel
-                        {
-                            TimeOfUse = item.TimeOfUse
-                        }).Distinct().ToList();
-                    data.Add(list);
-                }
+                var list = _dbContext.Category_ServicePointType.Where(item => item.ServicePointType == value).Select(item =>
+                    new Category_ServicePointTypeModel
+                    {
+                        TimeOfUse = item.TimeOfUse
+                    }).Distinct().ToList();
+                data.Add(list);
+
                 respone.Status = 1;
                 respone.Message = "OK";
                 respone.Data = data;
@@ -669,22 +647,20 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             try
             {
                 List<object> data = new List<object>();
-                using (var db = new CCISContext())
-                {
-                    var categoryPrice = (from D in db.Category_PotentialReference
-                                         join E in db.Category_Price on D.PotentialSpace equals E.PotentialSpace
-                                         where D.OccupationsGroupCode == E.OccupationsGroupCode
-                                            && D.PotentialCode == value
-                                            && E.ActiveDate <= DateTime.Now && DateTime.Now < (DateTime)E.EndDate.Value
-                                         select new Category_PriceModel
-                                         {
-                                             OccupationsGroupCode = E.OccupationsGroupCode + "-" + E.Time + "-" + E.Price + "   [" + E.Description + "]",
-                                             PriceId = E.PriceId,
-                                             Description = E.Description,
-                                             Time = E.Time
-                                         }).ToList();
-                    data.Add(categoryPrice);
-                }
+                var categoryPrice = (from D in _dbContext.Category_PotentialReference
+                                     join E in _dbContext.Category_Price on D.PotentialSpace equals E.PotentialSpace
+                                     where D.OccupationsGroupCode == E.OccupationsGroupCode
+                                        && D.PotentialCode == value
+                                        && E.ActiveDate <= DateTime.Now && DateTime.Now < (DateTime)E.EndDate.Value
+                                     select new Category_PriceModel
+                                     {
+                                         OccupationsGroupCode = E.OccupationsGroupCode + "-" + E.Time + "-" + E.Price + "   [" + E.Description + "]",
+                                         PriceId = E.PriceId,
+                                         Description = E.Description,
+                                         Time = E.Time
+                                     }).ToList();
+                data.Add(categoryPrice);
+
                 respone.Status = 1;
                 respone.Message = "OK";
                 respone.Data = data;
@@ -705,44 +681,42 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                // lấy danh sách loại điểm đo chính: điểm đo
+                var OccupationsGroup =
+                    _dbContext.Category_Price.Where(item =>
+                            item.PriceId.Equals(value) && item.ActiveDate <= DateTime.Now &&
+                            item.EndDate > DateTime.Now)
+                        .Select(item => new Category_PriceModel
+                        {
+                            OccupationsGroupCode = item.OccupationsGroupCode,
+                            Price = item.Price,
+                            PotentialCode = item.PotentialSpace,
+                            PriceGroupCode = item.PriceGroupCode,
+                            Time = item.Time,
+                            ActiveDate = item.ActiveDate
+                        }).FirstOrDefault();
+
+                var data = new ChangePriceModel()
                 {
-                    // lấy danh sách loại điểm đo chính: điểm đo
-                    var OccupationsGroup =
-                        db.Category_Price.Where(item =>
-                                item.PriceId.Equals(value) && item.ActiveDate <= DateTime.Now &&
-                                item.EndDate > DateTime.Now)
-                            .Select(item => new Category_PriceModel
-                            {
-                                OccupationsGroupCode = item.OccupationsGroupCode,
-                                Price = item.Price,
-                                PotentialCode = item.PotentialSpace,
-                                PriceGroupCode = item.PriceGroupCode,
-                                Time = item.Time,
-                                ActiveDate = item.ActiveDate
-                            }).FirstOrDefault();
+                    OccupationsGroupCode = OccupationsGroup.OccupationsGroupCode,
+                    Price = OccupationsGroup.Price,
+                    PotentialCode = OccupationsGroup.PotentialCode,
+                    PriceGroupCode = OccupationsGroup.PriceGroupCode,
+                    Time = OccupationsGroup.Time,
+                    OccupationsGroupName = OccupationsGroup != null
+                        ? null
+                        : _dbContext.Category_OccupationsGroup.Where(item =>
+                                item.OccupationsGroupCode.Equals(OccupationsGroup.OccupationsGroupCode))
+                            .Select(item => item.OccupationsGroupName)
+                            .FirstOrDefault(),
+                    ActiveDate = OccupationsGroup.ActiveDate.Day + "/" + OccupationsGroup.ActiveDate.Month + "/" + OccupationsGroup.ActiveDate.Year
+                };
 
-                    var data = new ChangePriceModel()
-                    {
-                        OccupationsGroupCode = OccupationsGroup.OccupationsGroupCode,
-                        Price = OccupationsGroup.Price,
-                        PotentialCode = OccupationsGroup.PotentialCode,
-                        PriceGroupCode = OccupationsGroup.PriceGroupCode,
-                        Time = OccupationsGroup.Time,
-                        OccupationsGroupName = OccupationsGroup != null
-                            ? null
-                            : db.Category_OccupationsGroup.Where(item =>
-                                    item.OccupationsGroupCode.Equals(OccupationsGroup.OccupationsGroupCode))
-                                .Select(item => item.OccupationsGroupName)
-                                .FirstOrDefault(),
-                        ActiveDate = OccupationsGroup.ActiveDate.Day + "/" + OccupationsGroup.ActiveDate.Month + "/" + OccupationsGroup.ActiveDate.Year
-                    };
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = data;
+                return createResponse();
 
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = data;
-                    return createResponse();
-                }
             }
             catch (Exception ex)
             {
@@ -941,9 +915,9 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                using (var _dbContext = new CCISContext())
                 {
-                    var checkExistCustomer = db.Concus_Customer.Any(x => x.CustomerId == model.CustomerId && x.DepartmentId == model.DepartmentId);
+                    var checkExistCustomer = _dbContext.Concus_Customer.Any(x => x.CustomerId == model.CustomerId && x.DepartmentId == model.DepartmentId);
                     if (checkExistCustomer)
                     {
                         var relationship = new Concus_Customer_Relationship
@@ -966,8 +940,8 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                             NguoiDaiDien = model.NguoiDaiDien
                         };
 
-                        db.Concus_Customer_Relationship.Add(relationship);
-                        db.SaveChanges();
+                        _dbContext.Concus_Customer_Relationship.Add(relationship);
+                        _dbContext.SaveChanges();
 
                         respone.Status = 1;
                         respone.Message = "Thêm thành công.";
@@ -995,12 +969,9 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
-                {                   
-                    var relation = db.Concus_Customer_Relationship.Where(x => x.CustomerRelationshipId == id && x.DepartmentId == departmentId && x.CustomerId == customerId).FirstOrDefault();
-                    relation.IsDelete = true;
-                    db.SaveChanges();
-                }
+                var relation = _dbContext.Concus_Customer_Relationship.Where(x => x.CustomerRelationshipId == id && x.DepartmentId == departmentId && x.CustomerId == customerId).FirstOrDefault();
+                relation.IsDelete = true;
+                _dbContext.SaveChanges();
 
                 respone.Status = 1;
                 respone.Message = "Đã xóa thành công.";

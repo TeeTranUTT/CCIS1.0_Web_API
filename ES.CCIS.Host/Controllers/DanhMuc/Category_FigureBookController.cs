@@ -21,6 +21,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_FigureBook business_FigureBook = new Business_Category_FigureBook();
+        private readonly CCISContext _dbContext;
+
+        public Category_FigureBookController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_FigureBookManager")]
@@ -36,50 +42,47 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //list đơn vị con của user đăng nhập
                 var lstDepartmentIds = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
 
-                using (var db = new CCISContext())
+                IQueryable<Category_FigureBookModel> query;
+
+                var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
+
+                query = _dbContext.Category_FigureBook.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_FigureBookModel
                 {
-                    IQueryable<Category_FigureBookModel> query;
-
-                    var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
-
-                    query = db.Category_FigureBook.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_FigureBookModel
-                    {
-                        FigureBookId = item.FigureBookId,
-                        BookCode = item.BookCode,
-                        BookName = item.BookName,
-                        SaveDate = item.SaveDate,
-                        PeriodNumber = item.PeriodNumber,
-                        Status = item.Status,
-                        IsRootBook = item.IsRootBook,
-                        DepartmentName = db.Administrator_Department.Where(p => p.DepartmentId == item.DepartmentId).Select(p => p.DepartmentName).FirstOrDefault(),
-                        DepartmentId = item.DepartmentId,
-                        TeamId = item.TeamId,
-                        BookType = item.BookType
-                    });
+                    FigureBookId = item.FigureBookId,
+                    BookCode = item.BookCode,
+                    BookName = item.BookName,
+                    SaveDate = item.SaveDate,
+                    PeriodNumber = item.PeriodNumber,
+                    Status = item.Status,
+                    IsRootBook = item.IsRootBook,
+                    DepartmentName = _dbContext.Administrator_Department.Where(p => p.DepartmentId == item.DepartmentId).Select(p => p.DepartmentName).FirstOrDefault(),
+                    DepartmentId = item.DepartmentId,
+                    TeamId = item.TeamId,
+                    BookType = item.BookType
+                });
 
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_FigureBookModel>)query.Where(item => item.BookName.Contains(search) || item.BookCode.Contains(search));
-                    }
-
-                    var pagedFigureBook = (IPagedList<Category_FigureBookModel>)query.OrderBy(p => p.FigureBookId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedFigureBook.PageNumber,
-                        pagedFigureBook.PageSize,
-                        pagedFigureBook.TotalItemCount,
-                        pagedFigureBook.PageCount,
-                        pagedFigureBook.HasNextPage,
-                        pagedFigureBook.HasPreviousPage,
-                        Routes = pagedFigureBook.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách sổ ghi chỉ số thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_FigureBookModel>)query.Where(item => item.BookName.Contains(search) || item.BookCode.Contains(search));
                 }
+
+                var pagedFigureBook = (IPagedList<Category_FigureBookModel>)query.OrderBy(p => p.FigureBookId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedFigureBook.PageNumber,
+                    pagedFigureBook.PageSize,
+                    pagedFigureBook.TotalItemCount,
+                    pagedFigureBook.PageCount,
+                    pagedFigureBook.HasNextPage,
+                    pagedFigureBook.HasPreviousPage,
+                    Routes = pagedFigureBook.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách sổ ghi chỉ số thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -100,41 +103,38 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"FigureBookId {FigureBookId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var figureBook = _dbContext.Category_FigureBook.Where(p => p.FigureBookId == FigureBookId).Select(item => new Category_FigureBookModel
                 {
-                    var figureBook = dbContext.Category_FigureBook.Where(p => p.FigureBookId == FigureBookId).Select(item => new Category_FigureBookModel
-                    {
-                        FigureBookId = item.FigureBookId,
-                        BookCode = item.BookCode,
-                        BookName = item.BookName,
-                        SaveDate = item.SaveDate,
-                        PeriodNumber = item.PeriodNumber,
-                        Status = item.Status,
-                        IsRootBook = item.IsRootBook,
-                        DepartmentId = item.DepartmentId,
-                        TeamId = item.TeamId,
-                        BookType = item.BookType
-                    });
+                    FigureBookId = item.FigureBookId,
+                    BookCode = item.BookCode,
+                    BookName = item.BookName,
+                    SaveDate = item.SaveDate,
+                    PeriodNumber = item.PeriodNumber,
+                    Status = item.Status,
+                    IsRootBook = item.IsRootBook,
+                    DepartmentId = item.DepartmentId,
+                    TeamId = item.TeamId,
+                    BookType = item.BookType
+                });
 
-                    if (figureBook?.Any() == true)
+                if (figureBook?.Any() == true)
+                {
+                    var response = figureBook.FirstOrDefault();
+                    if ((bool)response.Status)
                     {
-                        var response = figureBook.FirstOrDefault();
-                        if ((bool)response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin sổ ghi chỉ số thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Sổ ghi chỉ số {response.BookName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin sổ ghi chỉ số thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Sổ ghi chỉ số có FigureBookId {FigureBookId} không tồn tại.");
+                        throw new ArgumentException($"Sổ ghi chỉ số {response.BookName} đã bị vô hiệu.");
                     }
+                }
+                else
+                {
+                    throw new ArgumentException($"Sổ ghi chỉ số có FigureBookId {FigureBookId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -161,41 +161,38 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
                 category_FigureBook.DepartmentId = departmentId;
-                #endregion          
+                #endregion
 
-                using (var db = new CCISContext())
+                var checkFigureBookCodeExisted = _dbContext.Category_FigureBook.Any(item => item.BookCode == category_FigureBook.BookCode && item.Status == true);
+                if (checkFigureBookCodeExisted)
                 {
-                    var checkFigureBookCodeExisted = db.Category_FigureBook.Any(item => item.BookCode == category_FigureBook.BookCode && item.Status == true);
-                    if (checkFigureBookCodeExisted)
-                    {
-                        throw new ArgumentException($"Thêm mới sổ ghi chỉ số không thành công. Đã có sổ này trong hệ thống. Xin kiểm tra lại.");
-                    }
+                    throw new ArgumentException($"Thêm mới sổ ghi chỉ số không thành công. Đã có sổ này trong hệ thống. Xin kiểm tra lại.");
+                }
 
-                    business_FigureBook.AddCategory_FigureBook(category_FigureBook, userId);
+                business_FigureBook.AddCategory_FigureBook(category_FigureBook, userId);
 
-                    var figureBook = db.Category_FigureBook.FirstOrDefault(item => item.BookCode == category_FigureBook.BookCode && item.BookName == category_FigureBook.BookName);
-                    if (figureBook != null)
-                    {
-                        //Phân sổ cho tài khoản đăng nhập sau khi thêm mới sổ ghi chỉ số thành công
-                        var _BookOfUser = new Administrator_BookOfUser();
-                        _BookOfUser.UserId = userId;
-                        _BookOfUser.FigureBookId = figureBook.FigureBookId;
+                var figureBook = _dbContext.Category_FigureBook.FirstOrDefault(item => item.BookCode == category_FigureBook.BookCode && item.BookName == category_FigureBook.BookName);
+                if (figureBook != null)
+                {
+                    //Phân sổ cho tài khoản đăng nhập sau khi thêm mới sổ ghi chỉ số thành công
+                    var _BookOfUser = new Administrator_BookOfUser();
+                    _BookOfUser.UserId = userId;
+                    _BookOfUser.FigureBookId = figureBook.FigureBookId;
 
-                        db.Administrator_BookOfUser.Add(_BookOfUser);
-                        db.SaveChanges();
+                    _dbContext.Administrator_BookOfUser.Add(_BookOfUser);
+                    _dbContext.SaveChanges();
 
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới sổ ghi chỉ số thành công.";
-                        respone.Data = figureBook.FigureBookId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới sổ ghi chỉ số không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới sổ ghi chỉ số thành công.";
+                    respone.Data = figureBook.FigureBookId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới sổ ghi chỉ số không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
             catch (Exception ex)
@@ -212,10 +209,8 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         public HttpResponseMessage EditCategory_FigureBook(Category_FigureBookModel figureBook)
         {
             try
-            {
-                using (var dbContext = new CCISContext())
-                {
-                    var soGCS = dbContext.Category_FigureBook.Where(p => p.FigureBookId == figureBook.FigureBookId).FirstOrDefault();
+            {                
+                    var soGCS = _dbContext.Category_FigureBook.Where(p => p.FigureBookId == figureBook.FigureBookId).FirstOrDefault();
                     if (soGCS == null)
                     {
                         throw new ArgumentException($"Không tồn tại FigureBookId {figureBook.FigureBookId}");
@@ -234,8 +229,7 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                     respone.Message = "Chỉnh sửa sổ ghi chỉ số thành công.";
                     respone.Data = figureBook.FigureBookId;
 
-                    return createResponse();
-                }
+                    return createResponse();                
             }
             catch (Exception ex)
             {
@@ -252,20 +246,18 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var target = _dbContext.Category_FigureBook.Where(item => item.FigureBookId == figureBookId).FirstOrDefault();
+                target.Status = false;
+
+                //xóa cả ở bảng Index_CalendarOfSaveIndex với trường hợp sổ đó đã lập lịch
+                var delete = _dbContext.Index_CalendarOfSaveIndex.Where(item => item.FigureBookId == figureBookId).OrderByDescending(it => it.CreateDate).FirstOrDefault();
+                if (delete != null)
                 {
-                    var target = db.Category_FigureBook.Where(item => item.FigureBookId == figureBookId).FirstOrDefault();
-                    target.Status = false;
-
-                    //xóa cả ở bảng Index_CalendarOfSaveIndex với trường hợp sổ đó đã lập lịch
-                    var delete = db.Index_CalendarOfSaveIndex.Where(item => item.FigureBookId == figureBookId).OrderByDescending(it => it.CreateDate).FirstOrDefault();
-                    if (delete != null)
-                    {
-                        db.Index_CalendarOfSaveIndex.Remove(delete);
-                    }
-
-                    db.SaveChanges();
+                    _dbContext.Index_CalendarOfSaveIndex.Remove(delete);
                 }
+
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa sổ ghi chỉ số thành công.";
                 respone.Data = null;
@@ -286,33 +278,30 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var lstBookOfUser = _dbContext.Administrator_BookOfUser.Where(item => item.FigureBookId == input.FigureBookId).ToList();
+                if (lstBookOfUser.Count > 0)
                 {
-                    var lstBookOfUser = db.Administrator_BookOfUser.Where(item => item.FigureBookId == input.FigureBookId).ToList();
-                    if (lstBookOfUser.Count > 0)
-                    {
-                        foreach (var item in lstBookOfUser)
-                            db.Administrator_BookOfUser.Remove(item);
-                    }
-
-                    if (input.ListUser != null && input.ListUser.Count > 0)
-                        foreach (var item in input.ListUser)
-                        {
-                            if (item.IsChecked)
-                            {
-                                var _BookOfUser = new Administrator_BookOfUser();
-                                _BookOfUser.UserId = item.UserId;
-                                _BookOfUser.FigureBookId = input.FigureBookId;
-                                db.Administrator_BookOfUser.Add(_BookOfUser);
-                            }
-                        }
-                    db.SaveChanges();
-
-                    respone.Status = 1;
-                    respone.Message = "Phân sổ ghi chỉ số cho người dùng thành công.";
-                    respone.Data = null;
-                    return createResponse();
+                    foreach (var item in lstBookOfUser)
+                        _dbContext.Administrator_BookOfUser.Remove(item);
                 }
+
+                if (input.ListUser != null && input.ListUser.Count > 0)
+                    foreach (var item in input.ListUser)
+                    {
+                        if (item.IsChecked)
+                        {
+                            var _BookOfUser = new Administrator_BookOfUser();
+                            _BookOfUser.UserId = item.UserId;
+                            _BookOfUser.FigureBookId = input.FigureBookId;
+                            _dbContext.Administrator_BookOfUser.Add(_BookOfUser);
+                        }
+                    }
+                _dbContext.SaveChanges();
+
+                respone.Status = 1;
+                respone.Message = "Phân sổ ghi chỉ số cho người dùng thành công.";
+                respone.Data = null;
+                return createResponse();
             }
             catch (Exception ex)
             {

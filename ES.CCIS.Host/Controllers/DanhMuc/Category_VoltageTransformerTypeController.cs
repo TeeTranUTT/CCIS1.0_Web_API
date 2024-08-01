@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_VoltageTransformerType business_Category_VoltageTransformerType = new Business_Category_VoltageTransformerType();
+        private readonly CCISContext _dbContext;
+
+        public Category_VoltageTransformerTypeController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_VoltageTransformerTypeManager")]
@@ -25,44 +31,41 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_VoltageTransformerType.Where(item => item.Status == true).Select(item => new Category_VoltageTransformerTypeModel
                 {
-                    var query = db.Category_VoltageTransformerType.Where(item => item.Status == true).Select(item => new Category_VoltageTransformerTypeModel
-                    {
-                        Accuracy = item.Accuracy,
-                        ConnectionRatio = item.ConnectionRatio,
-                        Description = item.Description,
-                        NumberOfPhases = item.NumberOfPhases,
-                        Status = item.Status,
-                        TypeCode = item.TypeCode,
-                        TypeName = item.TypeName,
-                        Voltage = item.Voltage,
-                        VTTypeId = item.VTTypeId,
-                        TestingDay = item.TestingDay
-                    });
+                    Accuracy = item.Accuracy,
+                    ConnectionRatio = item.ConnectionRatio,
+                    Description = item.Description,
+                    NumberOfPhases = item.NumberOfPhases,
+                    Status = item.Status,
+                    TypeCode = item.TypeCode,
+                    TypeName = item.TypeName,
+                    Voltage = item.Voltage,
+                    VTTypeId = item.VTTypeId,
+                    TestingDay = item.TestingDay
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_VoltageTransformerTypeModel>)query.Where(item => item.TypeName.Contains(search) || item.TypeCode.Contains(search));
-                    }
-
-                    var pagedVoltageTransformerType = (IPagedList<Category_VoltageTransformerTypeModel>)query.OrderBy(p => p.VTTypeId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedVoltageTransformerType.PageNumber,
-                        pagedVoltageTransformerType.PageSize,
-                        pagedVoltageTransformerType.TotalItemCount,
-                        pagedVoltageTransformerType.PageCount,
-                        pagedVoltageTransformerType.HasNextPage,
-                        pagedVoltageTransformerType.HasPreviousPage,
-                        VoltageTransformerTypes = pagedVoltageTransformerType.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách chủng loại TU thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_VoltageTransformerTypeModel>)query.Where(item => item.TypeName.Contains(search) || item.TypeCode.Contains(search));
                 }
+
+                var pagedVoltageTransformerType = (IPagedList<Category_VoltageTransformerTypeModel>)query.OrderBy(p => p.VTTypeId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedVoltageTransformerType.PageNumber,
+                    pagedVoltageTransformerType.PageSize,
+                    pagedVoltageTransformerType.TotalItemCount,
+                    pagedVoltageTransformerType.PageCount,
+                    pagedVoltageTransformerType.HasNextPage,
+                    pagedVoltageTransformerType.HasPreviousPage,
+                    VoltageTransformerTypes = pagedVoltageTransformerType.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách chủng loại TU thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -83,42 +86,40 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"vTTypeId {vTTypeId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var voltageTransformerType = _dbContext.Category_VoltageTransformerType.Where(p => p.VTTypeId == vTTypeId).Select(item => new Category_VoltageTransformerTypeModel
                 {
-                    var voltageTransformerType = dbContext.Category_VoltageTransformerType.Where(p => p.VTTypeId == vTTypeId).Select(item => new Category_VoltageTransformerTypeModel
-                    {
-                        Accuracy = item.Accuracy,
-                        ConnectionRatio = item.ConnectionRatio,
-                        Description = item.Description,
-                        NumberOfPhases = item.NumberOfPhases,
-                        Status = item.Status,
-                        TypeCode = item.TypeCode,
-                        TypeName = item.TypeName,
-                        Voltage = item.Voltage,
-                        VTTypeId = item.VTTypeId,
-                        TestingDay = item.TestingDay
-                    });
+                    Accuracy = item.Accuracy,
+                    ConnectionRatio = item.ConnectionRatio,
+                    Description = item.Description,
+                    NumberOfPhases = item.NumberOfPhases,
+                    Status = item.Status,
+                    TypeCode = item.TypeCode,
+                    TypeName = item.TypeName,
+                    Voltage = item.Voltage,
+                    VTTypeId = item.VTTypeId,
+                    TestingDay = item.TestingDay
+                });
 
-                    if (voltageTransformerType?.Any() == true)
+                if (voltageTransformerType?.Any() == true)
+                {
+                    var response = voltageTransformerType.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = voltageTransformerType.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin chủng loại TU thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Chủng loại TU {response.TypeName} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin chủng loại TU thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Chủng loại TU có VoltageTransformerTypeId {vTTypeId} không tồn tại.");
+                        throw new ArgumentException($"Chủng loại TU {response.TypeName} đã bị vô hiệu.");
                     }
                 }
+                else
+                {
+                    throw new ArgumentException($"Chủng loại TU có VoltageTransformerTypeId {vTTypeId} không tồn tại.");
+                }
+
             }
             catch (Exception ex)
             {
@@ -144,23 +145,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     business_Category_VoltageTransformerType.AddCategory_VoltageTransformerType(model);
 
-                    using (var dbContext = new CCISContext())
+                    var chungLoaiTU = _dbContext.Category_VoltageTransformerType.Where(p => p.TypeName == model.TypeName && p.TypeCode == model.TypeCode).FirstOrDefault();
+                    if (chungLoaiTU != null)
                     {
-                        var chungLoaiTU = dbContext.Category_VoltageTransformerType.Where(p => p.TypeName == model.TypeName && p.TypeCode == model.TypeCode).FirstOrDefault();
-                        if (chungLoaiTU != null)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Thêm mới chủng loại TU thành công.";
-                            respone.Data = chungLoaiTU.VTTypeId;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            respone.Status = 0;
-                            respone.Message = "Thêm mới chủng loại TU không thành công.";
-                            respone.Data = null;
-                            return createResponse();
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Thêm mới chủng loại TU thành công.";
+                        respone.Data = chungLoaiTU.VTTypeId;
+                        return createResponse();
+                    }
+                    else
+                    {
+                        respone.Status = 0;
+                        respone.Message = "Thêm mới chủng loại TU không thành công.";
+                        respone.Data = null;
+                        return createResponse();
                     }
                 }
             }
@@ -179,31 +177,28 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var chungLoaiTU = _dbContext.Category_VoltageTransformerType.Where(p => p.VTTypeId == model.VTTypeId).FirstOrDefault();
+                if (chungLoaiTU == null)
                 {
-                    var chungLoaiTU = dbContext.Category_VoltageTransformerType.Where(p => p.VTTypeId == model.VTTypeId).FirstOrDefault();
-                    if (chungLoaiTU == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại vTTypeId {model.VTTypeId}");
-                    }
-
-                    //Kiểm tra đã tồn tại mã chủng loại TU
-                    if (business_Category_VoltageTransformerType.CheckExistTypeCodeForEdit(model.TypeCode, model.VTTypeId))
-                    {
-                        throw new ArgumentException("Mã chủng loại TU đã tồn tại.");
-                    }
-                    else
-                    {
-                        business_Category_VoltageTransformerType.EditCategory_VoltageTransformerType(model);
-
-                        respone.Status = 1;
-                        respone.Message = "Chỉnh sửa chủng loại TU thành công.";
-                        respone.Data = model.VTTypeId;
-
-                        return createResponse();
-                    }
-
+                    throw new ArgumentException($"Không tồn tại vTTypeId {model.VTTypeId}");
                 }
+
+                //Kiểm tra đã tồn tại mã chủng loại TU
+                if (business_Category_VoltageTransformerType.CheckExistTypeCodeForEdit(model.TypeCode, model.VTTypeId))
+                {
+                    throw new ArgumentException("Mã chủng loại TU đã tồn tại.");
+                }
+                else
+                {
+                    business_Category_VoltageTransformerType.EditCategory_VoltageTransformerType(model);
+
+                    respone.Status = 1;
+                    respone.Message = "Chỉnh sửa chủng loại TU thành công.";
+                    respone.Data = model.VTTypeId;
+
+                    return createResponse();
+                }
+
             }
             catch (Exception ex)
             {
@@ -220,12 +215,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_VoltageTransformerType.Where(item => item.VTTypeId == vTTypeId).FirstOrDefault();
-                    target.Status = false;
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_VoltageTransformerType.Where(item => item.VTTypeId == vTTypeId).FirstOrDefault();
+                target.Status = false;
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa chủng loại TU thành công.";
                 respone.Data = null;

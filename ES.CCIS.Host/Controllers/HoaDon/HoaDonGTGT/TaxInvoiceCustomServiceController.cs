@@ -21,6 +21,12 @@ namespace ES.CCIS.Host.Controllers.HoaDon.HoaDonGTGT
     public class TaxInvoiceCustomServiceController : ApiBaseController
     {
         private readonly Business_Bill_TaxInvoice businessBillTaxInvoice = new Business_Bill_TaxInvoice();
+        private readonly CCISContext _dbContext;
+
+        public TaxInvoiceCustomServiceController()
+        {
+            _dbContext = new CCISContext();
+        }
         #region Tính hóa đơn GTGT
         [HttpGet]
         [Route("TaxInvoiceCalculator_EMB")]
@@ -99,39 +105,36 @@ namespace ES.CCIS.Host.Controllers.HoaDon.HoaDonGTGT
         [Route("TaxInvoiceCalculator_EMB")]
         public HttpResponseMessage TaxInvoiceCalculator_EMB(TaxInvoiceCalculator_EMBInput input)
         {
-            using (var db = new CCISContext())
+            using (var _dbContextTransaction = _dbContext.Database.BeginTransaction())
             {
-                using (var dbContextTransaction = db.Database.BeginTransaction())
+                try
                 {
-                    try
+                    //Lấy id đơn vị theo người đăng nhập
+                    int departmentId = TokenHelper.GetDepartmentIdFromToken();
+                    int userId = TokenHelper.GetUserIdFromToken();
+                    var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
+
+                    var result = businessBillTaxInvoice.TinhPhiDichVu_EMB(input.FigureBookId, departmentId, userId, input.Month, input.Year, _dbContext);
+                    if (result != "Ok")
                     {
-                        //Lấy id đơn vị theo người đăng nhập
-                        int departmentId = TokenHelper.GetDepartmentIdFromToken();
-                        int userId = TokenHelper.GetUserIdFromToken();
-                        var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
+                        _dbContextTransaction.Rollback();
+                        throw new ArgumentException("Tính hóa đơn không thành công.");
 
-                        var result = businessBillTaxInvoice.TinhPhiDichVu_EMB(input.FigureBookId, departmentId, userId, input.Month, input.Year, db);
-                        if (result != "Ok")
-                        {
-                            dbContextTransaction.Rollback();
-                            throw new ArgumentException("Tính hóa đơn không thành công.");
-
-                        }
-                        dbContextTransaction.Commit();
-
-                        respone.Status = 1;
-                        respone.Message = "Tính hóa đơn thành công.";
-                        respone.Data = null;
-                        return createResponse();
                     }
-                    catch (Exception ex)
-                    {
-                        dbContextTransaction.Rollback();
-                        respone.Status = 0;
-                        respone.Message = $"{ex.Message.ToString()}";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    _dbContextTransaction.Commit();
+
+                    respone.Status = 1;
+                    respone.Message = "Tính hóa đơn thành công.";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                catch (Exception ex)
+                {
+                    _dbContextTransaction.Rollback();
+                    respone.Status = 0;
+                    respone.Message = $"{ex.Message.ToString()}";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
         }
@@ -181,23 +184,20 @@ namespace ES.CCIS.Host.Controllers.HoaDon.HoaDonGTGT
                 var departmentId = TokenHelper.GetDepartmentIdFromToken();
                 var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
 
-                using (var db = new CCISContext())
+                var target =
+                    _dbContext.Bill_TaxInvoiceStatus.Where(
+                        item =>
+                            item.FigureBookId == input.FigureBookId && item.Month == input.Month && item.Year == input.Year);
+                if (target != null && target.Any())
                 {
-                    var target =
-                        db.Bill_TaxInvoiceStatus.Where(
-                            item =>
-                                item.FigureBookId == input.FigureBookId && item.Month == input.Month && item.Year == input.Year);
-                    if (target != null && target.Any())
-                    {
-                        target.FirstOrDefault().Status = (int)(StatusCalendarOfSaveIndex.ConfirmData);
-                        db.SaveChanges();
-                    }
-
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = null;
-                    return createResponse();
+                    target.FirstOrDefault().Status = (int)(StatusCalendarOfSaveIndex.ConfirmData);
+                    _dbContext.SaveChanges();
                 }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = null;
+                return createResponse();
 
             }
             catch (Exception ex)
@@ -214,54 +214,51 @@ namespace ES.CCIS.Host.Controllers.HoaDon.HoaDonGTGT
         [Route("ConfirmCancelTaxInvoice")]
         public HttpResponseMessage ConfirmCancelTaxInvoice(ConfirmCancelTaxInvoiceInput input)
         {
-            using (var db = new CCISContext())
+            using (var _dbContextTransaction = _dbContext.Database.BeginTransaction())
             {
-                using (var dbContextTransaction = db.Database.BeginTransaction())
+                try
                 {
-                    try
-                    {
-                        //Lấy id đơn vị theo người đăng nhập
-                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
-                        var userId = TokenHelper.GetUserIdFromToken();
-                        var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
+                    //Lấy id đơn vị theo người đăng nhập
+                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                    var userId = TokenHelper.GetUserIdFromToken();
+                    var listDepartmentId = DepartmentHelper.GetChildDepIds(departmentId);
 
-                        var billTaxInvoiceDetail =
-                            db.Bill_TaxInvoiceDetail.Where(
+                    var billTaxInvoiceDetail =
+                        _dbContext.Bill_TaxInvoiceDetail.Where(
+                            item =>
+                                item.FigureBookId.Equals(input.FigureBookId) & item.Month.Equals(input.Month) &
+                                item.Year.Equals(input.Year) && item.DepartmentId.Equals(departmentId)).ToList();
+                    if (billTaxInvoiceDetail?.Any() == true)
+                    {
+                        var target =
+                            _dbContext.Bill_TaxInvoiceStatus.Where(
                                 item =>
-                                    item.FigureBookId.Equals(input.FigureBookId) & item.Month.Equals(input.Month) &
-                                    item.Year.Equals(input.Year) && item.DepartmentId.Equals(departmentId)).ToList();
-                        if (billTaxInvoiceDetail?.Any() == true)
+                                    item.FigureBookId == input.FigureBookId && item.Month == input.Month && item.Year == input.Year &&
+                                    item.Status == (int)(StatusCalendarOfSaveIndex.ConfirmData));
+                        if (target != null && target.Any())
                         {
-                            var target =
-                                db.Bill_TaxInvoiceStatus.Where(
-                                    item =>
-                                        item.FigureBookId == input.FigureBookId && item.Month == input.Month && item.Year == input.Year &&
-                                        item.Status == (int)(StatusCalendarOfSaveIndex.ConfirmData));
-                            if (target != null && target.Any())
-                            {
-                                target.FirstOrDefault().Status = (int)(StatusCalendarOfSaveIndex.Gcs);
-                                db.SaveChanges();
-                            }
-                            dbContextTransaction.Commit();
+                            target.FirstOrDefault().Status = (int)(StatusCalendarOfSaveIndex.Gcs);
+                            _dbContext.SaveChanges();
+                        }
+                        _dbContextTransaction.Commit();
 
-                            respone.Status = 1;
-                            respone.Message = "Hủy xác nhận thành công.";
-                            respone.Data = null;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException("Hủy xác nhận số liệu không thành công.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        dbContextTransaction.Rollback();
-                        respone.Status = 0;
-                        respone.Message = $"{ex.Message.ToString()}";
+                        respone.Status = 1;
+                        respone.Message = "Hủy xác nhận thành công.";
                         respone.Data = null;
                         return createResponse();
                     }
+                    else
+                    {
+                        throw new ArgumentException("Hủy xác nhận số liệu không thành công.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _dbContextTransaction.Rollback();
+                    respone.Status = 0;
+                    respone.Message = $"{ex.Message.ToString()}";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
         }

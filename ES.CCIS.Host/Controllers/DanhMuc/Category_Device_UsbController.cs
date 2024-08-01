@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
     {
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
+        private readonly CCISContext _dbContext;
+
+        public Category_Device_UsbController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_Device_UsbManager")]
@@ -25,40 +31,37 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Device_Usb.Where(item => item.Status == true).Select(item => new Category_Device_UsbModel
                 {
-                    var query = db.Category_Device_Usb.Where(item => item.Status == true).Select(item => new Category_Device_UsbModel
-                    {
-                        IdDevice = item.IdDevice,
-                        Name = item.Name,
-                        Seri = item.Seri,
-                        ActiveDate = item.ActiveDate,
-                        EndDate = item.EndDate,
-                        Status = item.Status
-                    });
+                    IdDevice = item.IdDevice,
+                    Name = item.Name,
+                    Seri = item.Seri,
+                    ActiveDate = item.ActiveDate,
+                    EndDate = item.EndDate,
+                    Status = item.Status
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_Device_UsbModel>)query.Where(item => item.Name.Contains(search) || item.Seri.Contains(search));
-                    }
-
-                    var pagedDeviceUsb = (IPagedList<Category_Device_UsbModel>)query.OrderBy(p => p.IdDevice).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedDeviceUsb.PageNumber,
-                        pagedDeviceUsb.PageSize,
-                        pagedDeviceUsb.TotalItemCount,
-                        pagedDeviceUsb.PageCount,
-                        pagedDeviceUsb.HasNextPage,
-                        pagedDeviceUsb.HasPreviousPage,
-                        DeviceUsbs = pagedDeviceUsb.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách chứng thư số thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_Device_UsbModel>)query.Where(item => item.Name.Contains(search) || item.Seri.Contains(search));
                 }
+
+                var pagedDeviceUsb = (IPagedList<Category_Device_UsbModel>)query.OrderBy(p => p.IdDevice).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedDeviceUsb.PageNumber,
+                    pagedDeviceUsb.PageSize,
+                    pagedDeviceUsb.TotalItemCount,
+                    pagedDeviceUsb.PageCount,
+                    pagedDeviceUsb.HasNextPage,
+                    pagedDeviceUsb.HasPreviousPage,
+                    DeviceUsbs = pagedDeviceUsb.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách chứng thư số thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -79,38 +82,36 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"DeviceId {deviceId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var chungThuSo = _dbContext.Category_Device_Usb.Where(p => p.IdDevice == deviceId).Select(item => new Category_Device_UsbModel
                 {
-                    var chungThuSo = dbContext.Category_Device_Usb.Where(p => p.IdDevice == deviceId).Select(item => new Category_Device_UsbModel
-                    {
-                        IdDevice = item.IdDevice,
-                        Name = item.Name,
-                        Seri = item.Seri,
-                        ActiveDate = item.ActiveDate,
-                        EndDate = item.EndDate,
-                        Status = item.Status
-                    });
+                    IdDevice = item.IdDevice,
+                    Name = item.Name,
+                    Seri = item.Seri,
+                    ActiveDate = item.ActiveDate,
+                    EndDate = item.EndDate,
+                    Status = item.Status
+                });
 
-                    if (chungThuSo?.Any() == true)
+                if (chungThuSo?.Any() == true)
+                {
+                    var response = chungThuSo.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = chungThuSo.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin chứng thư số thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Chứng thư số {response.Name} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin chứng thư số thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Chứng thư số có IdDevice {deviceId} không tồn tại.");
+                        throw new ArgumentException($"Chứng thư số {response.Name} đã bị vô hiệu.");
                     }
                 }
+                else
+                {
+                    throw new ArgumentException($"Chứng thư số có IdDevice {deviceId} không tồn tại.");
+                }
+
             }
             catch (Exception ex)
             {
@@ -131,33 +132,30 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException("Ngày hết hạn phải lớn hơn ngày hiệu lực.");
                 }
-                using (var dbContext = new CCISContext())
-                {
-                    Category_Device_Usb usb = new Category_Device_Usb();
-                    usb.ActiveDate = model.ActiveDate;
-                    usb.EndDate = model.EndDate;
-                    usb.Name = model.Name;
-                    usb.Seri = model.Seri;
-                    usb.Status = true;
-                    dbContext.Category_Device_Usb.Add(usb);
-                    dbContext.SaveChanges();
-                    model.IdDevice = usb.IdDevice;
+                Category_Device_Usb usb = new Category_Device_Usb();
+                usb.ActiveDate = model.ActiveDate;
+                usb.EndDate = model.EndDate;
+                usb.Name = model.Name;
+                usb.Seri = model.Seri;
+                usb.Status = true;
+                _dbContext.Category_Device_Usb.Add(usb);
+                _dbContext.SaveChanges();
+                model.IdDevice = usb.IdDevice;
 
-                    var chungLoaiTU = dbContext.Category_Device_Usb.Where(p => p.Name == model.Name).FirstOrDefault();
-                    if (chungLoaiTU != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới chứng thư số thành công.";
-                        respone.Data = chungLoaiTU.IdDevice;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới chứng thư số không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                var chungLoaiTU = _dbContext.Category_Device_Usb.Where(p => p.Name == model.Name).FirstOrDefault();
+                if (chungLoaiTU != null)
+                {
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới chứng thư số thành công.";
+                    respone.Data = chungLoaiTU.IdDevice;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới chứng thư số không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
 
             }
@@ -176,34 +174,31 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var chungThuSo = _dbContext.Category_Device_Usb.Where(p => p.IdDevice == model.IdDevice).FirstOrDefault();
+                if (chungThuSo == null)
                 {
-                    var chungThuSo = dbContext.Category_Device_Usb.Where(p => p.IdDevice == model.IdDevice).FirstOrDefault();
-                    if (chungThuSo == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại IdDevice {model.IdDevice}");
-                    }
-
-                    if (model != null && model.EndDate < model.ActiveDate)
-                    {
-                        throw new ArgumentException("Ngày hết hạn phải lớn hơn ngày hiệu lực.");
-                    }
-
-                    var target = dbContext.Category_Device_Usb.Where(item => item.IdDevice == model.IdDevice).FirstOrDefault();
-                    target.Name = model.Name;
-                    target.Seri = model.Seri;
-                    target.ActiveDate = model.ActiveDate;
-                    target.EndDate = model.EndDate;
-                    target.Status = model.Status;
-                    dbContext.SaveChanges();  
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa chứng thư số thành công.";
-                    respone.Data = model.IdDevice;
-
-                    return createResponse();
-
+                    throw new ArgumentException($"Không tồn tại IdDevice {model.IdDevice}");
                 }
+
+                if (model != null && model.EndDate < model.ActiveDate)
+                {
+                    throw new ArgumentException("Ngày hết hạn phải lớn hơn ngày hiệu lực.");
+                }
+
+                var target = _dbContext.Category_Device_Usb.Where(item => item.IdDevice == model.IdDevice).FirstOrDefault();
+                target.Name = model.Name;
+                target.Seri = model.Seri;
+                target.ActiveDate = model.ActiveDate;
+                target.EndDate = model.EndDate;
+                target.Status = model.Status;
+                _dbContext.SaveChanges();
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa chứng thư số thành công.";
+                respone.Data = model.IdDevice;
+
+                return createResponse();
+
             }
             catch (Exception ex)
             {
@@ -220,12 +215,10 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Device_Usb.Where(item => item.IdDevice == deviceId).FirstOrDefault();
-                    db.Category_Device_Usb.Remove(target);
-                    db.SaveChanges();
-                }
+                var target = _dbContext.Category_Device_Usb.Where(item => item.IdDevice == deviceId).FirstOrDefault();
+                _dbContext.Category_Device_Usb.Remove(target);
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa chứng thư số thành công.";
                 respone.Data = null;

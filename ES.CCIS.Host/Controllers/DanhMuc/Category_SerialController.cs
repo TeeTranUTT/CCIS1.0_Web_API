@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Serial businessSerial = new Business_Category_Serial();
+        private readonly CCISContext _dbContext;
+
+        public Category_SerialController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_SerialManager")]
@@ -35,48 +41,46 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //list đơn vị con của user đăng nhập
                 var lstDepCombo = DepartmentHelper.GetChildDepIds(administrator_Department.GetIddv(userInfo.UserName));
 
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Serial.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_SerialModel
                 {
-                    var query = db.Category_Serial.Where(item => listDepartments.Contains(item.DepartmentId) && item.Status == true).Select(item => new Category_SerialModel
-                    {
-                        SerialId = item.SerialId,
-                        DepartmentId = item.DepartmentId,
-                        BillType = item.BillType,
-                        SpecimenNumber = item.SpecimenNumber,
-                        SpecimenCode = item.SpecimenCode,
-                        TaxCode = item.TaxCode,
-                        MinSerial = item.MinSerial,
-                        MaxSerial = item.MaxSerial,
-                        CurrenSerial = item.CurrenSerial,
-                        ActiveDate = item.ActiveDate,
-                        EndDate = item.EndDate,
-                        Status = item.Status,
-                        //CreateDate =item.
-                        CurrenSerialBefore = item.CurrenSerialBefore
-                    });
+                    SerialId = item.SerialId,
+                    DepartmentId = item.DepartmentId,
+                    BillType = item.BillType,
+                    SpecimenNumber = item.SpecimenNumber,
+                    SpecimenCode = item.SpecimenCode,
+                    TaxCode = item.TaxCode,
+                    MinSerial = item.MinSerial,
+                    MaxSerial = item.MaxSerial,
+                    CurrenSerial = item.CurrenSerial,
+                    ActiveDate = item.ActiveDate,
+                    EndDate = item.EndDate,
+                    Status = item.Status,
+                    //CreateDate =item.
+                    CurrenSerialBefore = item.CurrenSerialBefore
+                });
 
-                    if (!string.IsNullOrEmpty(BillType))
-                    {
-                        query = (IQueryable<Category_SerialModel>)query.Where(item => item.BillType == BillType);
-                    }
-
-                    var pagedStation = (IPagedList<Category_SerialModel>)query.OrderBy(p => p.SerialId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedStation.PageNumber,
-                        pagedStation.PageSize,
-                        pagedStation.TotalItemCount,
-                        pagedStation.PageCount,
-                        pagedStation.HasNextPage,
-                        pagedStation.HasPreviousPage,
-                        Stations = pagedStation.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách mẫu hóa đơn điện tử thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(BillType))
+                {
+                    query = (IQueryable<Category_SerialModel>)query.Where(item => item.BillType == BillType);
                 }
+
+                var pagedStation = (IPagedList<Category_SerialModel>)query.OrderBy(p => p.SerialId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedStation.PageNumber,
+                    pagedStation.PageSize,
+                    pagedStation.TotalItemCount,
+                    pagedStation.PageCount,
+                    pagedStation.HasNextPage,
+                    pagedStation.HasPreviousPage,
+                    Stations = pagedStation.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách mẫu hóa đơn điện tử thành công.";
+                respone.Data = response;
+                return createResponse();
+
             }
             catch (Exception ex)
             {
@@ -97,45 +101,42 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"SerialId {serialId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+                var station = _dbContext.Category_Serial.Where(item => item.SerialId == serialId).Select(item => new Category_SerialModel
                 {
-                    var station = dbContext.Category_Serial.Where(item => item.SerialId == serialId).Select(item => new Category_SerialModel
-                    {
-                        SerialId = item.SerialId,
-                        DepartmentId = item.DepartmentId,
-                        BillType = item.BillType,
-                        SpecimenNumber = item.SpecimenNumber,
-                        SpecimenCode = item.SpecimenCode,
-                        TaxCode = item.TaxCode,
-                        MinSerial = item.MinSerial,
-                        MaxSerial = item.MaxSerial,
-                        CurrenSerial = item.CurrenSerial,
-                        ActiveDate = item.ActiveDate,
-                        EndDate = item.EndDate,
-                        Status = item.Status,
-                        //CreateDate =item.
-                        CurrenSerialBefore = item.CurrenSerialBefore
-                    });
+                    SerialId = item.SerialId,
+                    DepartmentId = item.DepartmentId,
+                    BillType = item.BillType,
+                    SpecimenNumber = item.SpecimenNumber,
+                    SpecimenCode = item.SpecimenCode,
+                    TaxCode = item.TaxCode,
+                    MinSerial = item.MinSerial,
+                    MaxSerial = item.MaxSerial,
+                    CurrenSerial = item.CurrenSerial,
+                    ActiveDate = item.ActiveDate,
+                    EndDate = item.EndDate,
+                    Status = item.Status,
+                    //CreateDate =item.
+                    CurrenSerialBefore = item.CurrenSerialBefore
+                });
 
-                    if (station?.Any() == true)
+                if (station?.Any() == true)
+                {
+                    var response = station.FirstOrDefault();
+                    if (response.Status)
                     {
-                        var response = station.FirstOrDefault();
-                        if (response.Status)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Lấy thông tin mẫu hóa đơn điện tử thành công.";
-                            respone.Data = response;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException($"Mẫu hóa đơn điện tử {response.SpecimenCode} đã bị vô hiệu.");
-                        }
+                        respone.Status = 1;
+                        respone.Message = "Lấy thông tin mẫu hóa đơn điện tử thành công.";
+                        respone.Data = response;
+                        return createResponse();
                     }
                     else
                     {
-                        throw new ArgumentException($"Mẫu hóa đơn điện tử có SerialId {serialId} không tồn tại.");
+                        throw new ArgumentException($"Mẫu hóa đơn điện tử {response.SpecimenCode} đã bị vô hiệu.");
                     }
+                }
+                else
+                {
+                    throw new ArgumentException($"Mẫu hóa đơn điện tử có SerialId {serialId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -162,23 +163,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 businessSerial.AddCategory_Serial(model);
 
-                using (var dbContext = new CCISContext())
+                var serial = _dbContext.Category_Serial.Where(p => p.SpecimenCode == model.SpecimenCode && p.SpecimenNumber == model.SpecimenNumber).FirstOrDefault();
+                if (serial != null)
                 {
-                    var serial = dbContext.Category_Serial.Where(p => p.SpecimenCode == model.SpecimenCode && p.SpecimenNumber == model.SpecimenNumber).FirstOrDefault();
-                    if (serial != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới mẫu hóa đơn điện tử thành công.";
-                        respone.Data = serial.SerialId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới mẫu hóa đơn điện tử không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới mẫu hóa đơn điện tử thành công.";
+                    respone.Data = serial.SerialId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới mẫu hóa đơn điện tử không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
             catch (Exception ex)
@@ -196,29 +194,26 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var mauHoaDon = _dbContext.Category_Serial.Where(p => p.SerialId == model.SerialId).FirstOrDefault();
+                if (mauHoaDon == null)
                 {
-                    var mauHoaDon = dbContext.Category_Serial.Where(p => p.SerialId == model.SerialId).FirstOrDefault();
-                    if (mauHoaDon == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại SerialId {model.SerialId}");
-                    }
-
-                    #region Get DepartmentId From Token
-
-                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
-
-                    model.DepartmentId = departmentId;
-                    #endregion
-
-                    businessSerial.EditCategory_Serial(model);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa mẫu hóa đơn điện tử thành công.";
-                    respone.Data = mauHoaDon.SerialId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại SerialId {model.SerialId}");
                 }
+
+                #region Get DepartmentId From Token
+
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                model.DepartmentId = departmentId;
+                #endregion
+
+                businessSerial.EditCategory_Serial(model);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa mẫu hóa đơn điện tử thành công.";
+                respone.Data = mauHoaDon.SerialId;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -235,20 +230,18 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {                    
-                    var target = db.Category_Serial.Where(item => item.SerialId == serialId).FirstOrDefault();
-                    //kiểm tra nếu chưa dùng thì được xóa
-                    if (target.CurrenSerial == null || target.CurrenSerial == 0)
-                    {
-                        db.Category_Serial.Remove(target);
-                    }
-                    else
-                    {
-                        target.Status = false;                        
-                    }
-                    db.SaveChanges();
+                var target = _dbContext.Category_Serial.Where(item => item.SerialId == serialId).FirstOrDefault();
+                //kiểm tra nếu chưa dùng thì được xóa
+                if (target.CurrenSerial == null || target.CurrenSerial == 0)
+                {
+                    _dbContext.Category_Serial.Remove(target);
                 }
+                else
+                {
+                    target.Status = false;
+                }
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa mẫu hóa đơn điện tử thành công.";
                 respone.Data = null;

@@ -24,6 +24,12 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         private readonly Business_Concus_ImposedPrice business_Concus_ImposedPrice = new Business_Concus_ImposedPrice();
         private readonly Business_Concus_Contract Concus_Contract = new Business_Concus_Contract();
         private readonly Business_Concus_ContractDetail businessConcusContractDetail = new Business_Concus_ContractDetail();
+        private readonly CCISContext _dbContext;
+
+        public SolarController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         #region Danh sách hợp đồng
         [HttpGet]
@@ -32,57 +38,54 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                IEnumerable<Solar_ContractModel> lists;
+                if (departmentId == 0)
                 {
-                    IEnumerable<Solar_ContractModel> lists;
-                    if (departmentId == 0)
-                    {
-                        lists = new List<Solar_ContractModel>();
-                    }
-                    else
-                    {
-                        var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
-
-                        lists = (from item in db.Solar_Contract
-                               .Where(item => listDepartments.Contains(item.DepartmentId))
-                                 select new Solar_ContractModel
-                                 {
-                                     CustomerId = item.CustomerId,
-                                     ContractId = item.ContractId,
-                                     DepartmentId = item.DepartmentId,
-                                     ReasonId = item.ReasonId,
-                                     ContractCode = item.ContractCode,
-                                     SignatureDate = item.SignatureDate,
-                                     ActiveDate = item.ActiveDate,
-                                     EndDate = item.EndDate,
-                                     CreateDate = item.CreateDate,
-                                     CreateUser = item.CreateUser,
-                                     ContractName = item.ContractName,
-                                     CustomerCode = item.ContractCode,
-                                     ContractAdress = item.ContractAdress
-                                 });
-                        if (!string.IsNullOrEmpty(search))
-                        {
-                            lists = (IQueryable<Solar_ContractModel>)lists.Where(item => item.ContractName.Contains(search) || item.CustomerCode.Contains(search) || item.ContractAdress.Contains(search));
-                        }
-                    }
-                    var paged = (IPagedList<Solar_ContractModel>)lists.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        paged.PageNumber,
-                        paged.PageSize,
-                        paged.TotalItemCount,
-                        paged.PageCount,
-                        paged.HasNextPage,
-                        paged.HasPreviousPage,
-                        SolarContracts = paged.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = response;
-                    return createResponse();
+                    lists = new List<Solar_ContractModel>();
                 }
+                else
+                {
+                    var listDepartments = DepartmentHelper.GetChildDepIds(departmentId);
+
+                    lists = (from item in _dbContext.Solar_Contract
+                           .Where(item => listDepartments.Contains(item.DepartmentId))
+                             select new Solar_ContractModel
+                             {
+                                 CustomerId = item.CustomerId,
+                                 ContractId = item.ContractId,
+                                 DepartmentId = item.DepartmentId,
+                                 ReasonId = item.ReasonId,
+                                 ContractCode = item.ContractCode,
+                                 SignatureDate = item.SignatureDate,
+                                 ActiveDate = item.ActiveDate,
+                                 EndDate = item.EndDate,
+                                 CreateDate = item.CreateDate,
+                                 CreateUser = item.CreateUser,
+                                 ContractName = item.ContractName,
+                                 CustomerCode = item.ContractCode,
+                                 ContractAdress = item.ContractAdress
+                             });
+                    if (!string.IsNullOrEmpty(search))
+                    {
+                        lists = (IQueryable<Solar_ContractModel>)lists.Where(item => item.ContractName.Contains(search) || item.CustomerCode.Contains(search) || item.ContractAdress.Contains(search));
+                    }
+                }
+                var paged = (IPagedList<Solar_ContractModel>)lists.OrderBy(p => p.CustomerCode).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    paged.PageNumber,
+                    paged.PageSize,
+                    paged.TotalItemCount,
+                    paged.PageCount,
+                    paged.HasNextPage,
+                    paged.HasPreviousPage,
+                    SolarContracts = paged.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -100,71 +103,68 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                var model = _dbContext.Concus_Contract.Where(item => item.ContractId.Equals(contractId))
+                .Select(item => new Concus_ContractModel
                 {
-                    var model = db.Concus_Contract.Where(item => item.ContractId.Equals(contractId))
-                    .Select(item => new Concus_ContractModel
-                    {
-                        ContractId = item.ContractId,
-                        DepartmentId = item.DepartmentId,
-                        ReasonId = item.ReasonId,
-                        ContractCode = item.ContractCode,
-                        ContractTypeId = item.ContractTypeId,
-                        SignatureDate = item.SignatureDate,
-                        ActiveDate = item.ActiveDate,
-                        EndDate = item.EndDate,
-                        CreateDate = item.CreateDate,
-                        CreateUser = item.CreateUser,
-                        Name = item.Concus_Customer.Name, //thêm name
-                        FileName = db.Concus_ContractFile.FirstOrDefault(x => x.ContractId.Equals(item.ContractId)).FileName,//thêm filenam trong model
-                        FileUrl = db.Concus_ContractFile.FirstOrDefault(x => x.ContractId.Equals(item.ContractId)).FileUrl,
-                        TypeName = item.Category_ContractType.TypeName,
-                        Note = item.Category_Reason.ReasonName
-                    }).FirstOrDefault();
+                    ContractId = item.ContractId,
+                    DepartmentId = item.DepartmentId,
+                    ReasonId = item.ReasonId,
+                    ContractCode = item.ContractCode,
+                    ContractTypeId = item.ContractTypeId,
+                    SignatureDate = item.SignatureDate,
+                    ActiveDate = item.ActiveDate,
+                    EndDate = item.EndDate,
+                    CreateDate = item.CreateDate,
+                    CreateUser = item.CreateUser,
+                    Name = item.Concus_Customer.Name, //thêm name
+                    FileName = _dbContext.Concus_ContractFile.FirstOrDefault(x => x.ContractId.Equals(item.ContractId)).FileName,//thêm filenam trong model
+                    FileUrl = _dbContext.Concus_ContractFile.FirstOrDefault(x => x.ContractId.Equals(item.ContractId)).FileUrl,
+                    TypeName = item.Category_ContractType.TypeName,
+                    Note = item.Category_Reason.ReasonName
+                }).FirstOrDefault();
 
-                    string signatureDate = model.SignatureDate.Day + "/" + model.SignatureDate.Month + "/" + model.SignatureDate.Year;
-                    string activeDate = model.ActiveDate.Day + "/" + model.ActiveDate.Month + "/" + model.ActiveDate.Year;
-                    string endDate = model.EndDate.Day + "/" + model.EndDate.Month + "/" + model.EndDate.Year;
-                    string createDate = model.CreateDate.Day + "/" + model.CreateDate.Month + "/" + model.CreateDate.Year;
-                    decimal TicksActiveDate = model.ActiveDate.Ticks;
-                    decimal TicksEndDate = model.EndDate.Ticks;
-                    decimal TicksNow = DateTime.Now.Ticks;
+                string signatureDate = model.SignatureDate.Day + "/" + model.SignatureDate.Month + "/" + model.SignatureDate.Year;
+                string activeDate = model.ActiveDate.Day + "/" + model.ActiveDate.Month + "/" + model.ActiveDate.Year;
+                string endDate = model.EndDate.Day + "/" + model.EndDate.Month + "/" + model.EndDate.Year;
+                string createDate = model.CreateDate.Day + "/" + model.CreateDate.Month + "/" + model.CreateDate.Year;
+                decimal TicksActiveDate = model.ActiveDate.Ticks;
+                decimal TicksEndDate = model.EndDate.Ticks;
+                decimal TicksNow = DateTime.Now.Ticks;
 
-                    var ds = db.Concus_ContractFile.Where(item => item.ContractId.Equals(contractId)).Select(item => new
-                    {
-                        filename = item.FileName,
-                        fileurl = item.FileUrl,
-                        ngay = item.CreateDate.Day + "/" + item.CreateDate.Month + "/" + item.CreateDate.Year
-                    }).ToList();
+                var ds = _dbContext.Concus_ContractFile.Where(item => item.ContractId.Equals(contractId)).Select(item => new
+                {
+                    filename = item.FileName,
+                    fileurl = item.FileUrl,
+                    ngay = item.CreateDate.Day + "/" + item.CreateDate.Month + "/" + item.CreateDate.Year
+                }).ToList();
 
-                    var response = new
-                    {
-                        ContractId = model.ContractId,
-                        DepartmentId = model.DepartmentId,
-                        ReasonId = model.ReasonId,
-                        ContractCode = model.ContractCode,
-                        ContractTypeId = model.ContractTypeId,
-                        SignatureDate = signatureDate,
-                        ActiveDate = activeDate,
-                        EndDate = endDate,
-                        CreateDate = createDate,
-                        CreateUser = model.CreateUser,
-                        Name = model.Name,
-                        TypeName = model.TypeName,
-                        ReasonName = model.Note,
-                        FileName = model.FileName,
-                        FileUrl = model.FileUrl,
-                        ds = ds,
-                        TicksActiveDate = TicksActiveDate,
-                        TicksEndDate = TicksEndDate,
-                        TicksNow = TicksNow
-                    };
+                var response = new
+                {
+                    ContractId = model.ContractId,
+                    DepartmentId = model.DepartmentId,
+                    ReasonId = model.ReasonId,
+                    ContractCode = model.ContractCode,
+                    ContractTypeId = model.ContractTypeId,
+                    SignatureDate = signatureDate,
+                    ActiveDate = activeDate,
+                    EndDate = endDate,
+                    CreateDate = createDate,
+                    CreateUser = model.CreateUser,
+                    Name = model.Name,
+                    TypeName = model.TypeName,
+                    ReasonName = model.Note,
+                    FileName = model.FileName,
+                    FileUrl = model.FileUrl,
+                    ds = ds,
+                    TicksActiveDate = TicksActiveDate,
+                    TicksEndDate = TicksEndDate,
+                    TicksNow = TicksNow
+                };
 
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = response;
-                    return createResponse();
-                }
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -189,187 +189,184 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             {
                 Customer_ContractModel cusContract = new Customer_ContractModel();
 
-                using (var db = new CCISContext())
+                // lấy thông tin  hợp đồng
+                //Lấy thông tin điểm đo
+                var concusServicePoint =
+                    _dbContext.Concus_ServicePoint.Where(item => item.PointId.Equals(pointId))
+                        .Select(item => new Concus_ServicePointModel
+                        {
+                            PointId = item.PointId,
+                            PointCode = item.PointCode,
+                            DepartmentId = item.DepartmentId,
+                            ContractId = item.ContractId,
+                            PotentialCode = item.PotentialCode,
+                            Address = item.Address,
+                            ReactivePower = item.ReactivePower,
+                            Power = item.Power,
+                            NumberOfPhases = item.NumberOfPhases,
+                            ActiveDate = item.ActiveDate,
+                            Status = item.Status,
+                            CreateDate = item.CreateDate,
+                            CreateUser = item.CreateUser,
+                            HouseholdNumber = item.HouseholdNumber,
+                            StationId = item.StationId,
+                            RouteId = item.RouteId,
+                            TeamId = item.TeamId,
+                            BoxNumber = item.BoxNumber,
+                            PillarNumber = item.PillarNumber,
+                            FigureBookId = item.FigureBookId,
+                            Index = item.Index,
+                            ServicePointType = item.ServicePointType,
+                            Description = item.ServicePointType + " - " + _dbContext.Category_ServicePointType.Where(a => a.ServicePointType == item.ServicePointType).Select(a => a.Description).FirstOrDefault(),
+                            PotentialName = item.PotentialCode + " - " + _dbContext.Category_Potential.Where(a => a.PotentialCode == item.PotentialCode).Select(a => a.PotentialName).FirstOrDefault(),
+
+                        }).FirstOrDefault();
+                cusContract.ServicePoint = concusServicePoint;
+
+                //Lấy thông tin hợp đồng
+                int contractId = Convert.ToInt32(concusServicePoint.ContractId);
+                var concusContract =
+                    _dbContext.Concus_Contract.Where(item => item.ContractId == contractId)
+                        .Select(item => new Concus_ContractModel
+                        {
+                            ContractId = item.ContractId,
+                            DepartmentId = item.DepartmentId,
+                            CustomerId = item.CustomerId,
+                            ReasonId = item.ReasonId,
+                            ContractCode = item.ContractCode,
+                            ContractTypeId = item.ContractTypeId,
+                            SignatureDate = item.SignatureDate,
+                            ActiveDate = item.ActiveDate,
+                            EndDate = item.EndDate,
+                            CreateDate = item.CreateDate,
+                            CreateUser = item.CreateUser,
+                            Note = item.Note
+                        }).FirstOrDefault();
+                cusContract.Contract = concusContract;
+
+                //Lấy danh sách khách hàng
+                var concusCustomer =
+                    _dbContext.Concus_Customer.Where(item => item.CustomerId.Equals(concusContract.CustomerId))
+                        .Select(item => new Concus_CustomerModel
+                        {
+                            CustomerId = item.CustomerId,
+                            CustomerCode = item.CustomerCode,
+                            DepartmentId = item.DepartmentId,
+                            Name = item.Name,
+                            Address = item.Address,
+                            InvoiceAddress = item.InvoiceAddress,
+                            Fax = item.Fax,
+                            Gender = item.Gender,
+                            Email = item.Email,
+                            PhoneNumber = item.PhoneNumber,
+                            TaxCode = item.TaxCode,
+                            Ratio = item.Ratio,
+                            BankAccount = item.BankAccount,
+                            BankName = item.BankName,
+                            Status = item.Status,
+                            CreateDate = item.CreateDate,
+                            CreateUser = item.CreateUser,
+                            OccupationsGroupCode = item.OccupationsGroupCode,
+                            PhoneCustomerCare = item.PhoneCustomerCare
+                        }).FirstOrDefault();
+                cusContract.Customer = concusCustomer;
+
+                // lay danh sach ap gia 
+                var Concus_ImposedPrice =
+                    _dbContext.Concus_ImposedPrice.Where(item => item.PointId.Equals(pointId))
+                        .Select(item => new Concus_ImposedPriceModel
+                        {
+                            ImposedPriceId = item.ImposedPriceId,
+                            DepartmentId = item.DepartmentId,
+                            PointId = item.PointId,
+                            ActiveDate = item.ActiveDate,
+                            TimeOfSale = item.TimeOfSale,
+                            TimeOfUse = item.TimeOfUse,
+                            OccupationsGroupCode = item.OccupationsGroupCode,
+                            GroupCode = item.GroupCode,
+                            PotentialCode = item.PotentialCode,
+                            Index = item.Index,
+                            Rated = item.Rated,
+                            RatedType = item.RatedType,
+                            CreateDate = item.CreateDate,
+                            CreateUser = item.CreateUser,
+                            HouseholdNumber = concusServicePoint.HouseholdNumber,
+                            Describe = item.Describe,
+                            Price = _dbContext.Category_Price.Where(a => a.OccupationsGroupCode.Equals(item.OccupationsGroupCode) &&
+                                a.PotentialSpace == (_dbContext.Category_PotentialReference.Where(b => b.PotentialCode.Equals(item.PotentialCode)).Select(b => b.PotentialSpace).FirstOrDefault()) &&
+                                a.Time.Equals(item.TimeOfSale) &&
+                                a.PriceGroupCode.Equals(item.GroupCode) && a.ActiveDate <= DateTime.Now && a.EndDate > DateTime.Now).Select(a => a.Price).FirstOrDefault(),
+                        }).ToList();
+
+                //nếu chưa có dòng áp giá nào thì phải lấy ngày hiệu lực điểm đo (hoặc ngày có chỉ số đầu tiên)
+                if (Concus_ImposedPrice?.Any() != true)
                 {
-                    // lấy thông tin  hợp đồng
-                    //Lấy thông tin điểm đo
-                    var concusServicePoint =
-                        db.Concus_ServicePoint.Where(item => item.PointId.Equals(pointId))
-                            .Select(item => new Concus_ServicePointModel
-                            {
-                                PointId = item.PointId,
-                                PointCode = item.PointCode,
-                                DepartmentId = item.DepartmentId,
-                                ContractId = item.ContractId,
-                                PotentialCode = item.PotentialCode,
-                                Address = item.Address,
-                                ReactivePower = item.ReactivePower,
-                                Power = item.Power,
-                                NumberOfPhases = item.NumberOfPhases,
-                                ActiveDate = item.ActiveDate,
-                                Status = item.Status,
-                                CreateDate = item.CreateDate,
-                                CreateUser = item.CreateUser,
-                                HouseholdNumber = item.HouseholdNumber,
-                                StationId = item.StationId,
-                                RouteId = item.RouteId,
-                                TeamId = item.TeamId,
-                                BoxNumber = item.BoxNumber,
-                                PillarNumber = item.PillarNumber,
-                                FigureBookId = item.FigureBookId,
-                                Index = item.Index,
-                                ServicePointType = item.ServicePointType,
-                                Description = item.ServicePointType + " - " + db.Category_ServicePointType.Where(a => a.ServicePointType == item.ServicePointType).Select(a => a.Description).FirstOrDefault(),
-                                PotentialName = item.PotentialCode + " - " + db.Category_Potential.Where(a => a.PotentialCode == item.PotentialCode).Select(a => a.PotentialName).FirstOrDefault(),
-
-                            }).FirstOrDefault();
-                    cusContract.ServicePoint = concusServicePoint;
-
-                    //Lấy thông tin hợp đồng
-                    int contractId = Convert.ToInt32(concusServicePoint.ContractId);
-                    var concusContract =
-                        db.Concus_Contract.Where(item => item.ContractId == contractId)
-                            .Select(item => new Concus_ContractModel
-                            {
-                                ContractId = item.ContractId,
-                                DepartmentId = item.DepartmentId,
-                                CustomerId = item.CustomerId,
-                                ReasonId = item.ReasonId,
-                                ContractCode = item.ContractCode,
-                                ContractTypeId = item.ContractTypeId,
-                                SignatureDate = item.SignatureDate,
-                                ActiveDate = item.ActiveDate,
-                                EndDate = item.EndDate,
-                                CreateDate = item.CreateDate,
-                                CreateUser = item.CreateUser,
-                                Note = item.Note
-                            }).FirstOrDefault();
-                    cusContract.Contract = concusContract;
-
-                    //Lấy danh sách khách hàng
-                    var concusCustomer =
-                        db.Concus_Customer.Where(item => item.CustomerId.Equals(concusContract.CustomerId))
-                            .Select(item => new Concus_CustomerModel
-                            {
-                                CustomerId = item.CustomerId,
-                                CustomerCode = item.CustomerCode,
-                                DepartmentId = item.DepartmentId,
-                                Name = item.Name,
-                                Address = item.Address,
-                                InvoiceAddress = item.InvoiceAddress,
-                                Fax = item.Fax,
-                                Gender = item.Gender,
-                                Email = item.Email,
-                                PhoneNumber = item.PhoneNumber,
-                                TaxCode = item.TaxCode,
-                                Ratio = item.Ratio,
-                                BankAccount = item.BankAccount,
-                                BankName = item.BankName,
-                                Status = item.Status,
-                                CreateDate = item.CreateDate,
-                                CreateUser = item.CreateUser,
-                                OccupationsGroupCode = item.OccupationsGroupCode,
-                                PhoneCustomerCare = item.PhoneCustomerCare
-                            }).FirstOrDefault();
-                    cusContract.Customer = concusCustomer;
-
-                    // lay danh sach ap gia 
-                    var Concus_ImposedPrice =
-                        db.Concus_ImposedPrice.Where(item => item.PointId.Equals(pointId))
-                            .Select(item => new Concus_ImposedPriceModel
-                            {
-                                ImposedPriceId = item.ImposedPriceId,
-                                DepartmentId = item.DepartmentId,
-                                PointId = item.PointId,
-                                ActiveDate = item.ActiveDate,
-                                TimeOfSale = item.TimeOfSale,
-                                TimeOfUse = item.TimeOfUse,
-                                OccupationsGroupCode = item.OccupationsGroupCode,
-                                GroupCode = item.GroupCode,
-                                PotentialCode = item.PotentialCode,
-                                Index = item.Index,
-                                Rated = item.Rated,
-                                RatedType = item.RatedType,
-                                CreateDate = item.CreateDate,
-                                CreateUser = item.CreateUser,
-                                HouseholdNumber = concusServicePoint.HouseholdNumber,
-                                Describe = item.Describe,
-                                Price = db.Category_Price.Where(a => a.OccupationsGroupCode.Equals(item.OccupationsGroupCode) &&
-                                    a.PotentialSpace == (db.Category_PotentialReference.Where(b => b.PotentialCode.Equals(item.PotentialCode)).Select(b => b.PotentialSpace).FirstOrDefault()) &&
-                                    a.Time.Equals(item.TimeOfSale) &&
-                                    a.PriceGroupCode.Equals(item.GroupCode) && a.ActiveDate <= DateTime.Now && a.EndDate > DateTime.Now).Select(a => a.Price).FirstOrDefault(),
-                            }).ToList();
-
-                    //nếu chưa có dòng áp giá nào thì phải lấy ngày hiệu lực điểm đo (hoặc ngày có chỉ số đầu tiên)
-                    if (Concus_ImposedPrice?.Any() != true)
+                    cusContract.dActivedate = cusContract.ServicePoint.ActiveDate;
+                    cusContract.isFixActivedate = true;
+                }
+                else
+                {
+                    //lấy ngày đầu kỳ đã tính hóa đơn + 1
+                    decimal maxBillID = 0;
+                    maxBillID = _dbContext.Bill_ElectricityBillDetail.Where(o => o.DepartmentId == concusContract.DepartmentId
+                                && o.PointId == cusContract.ServicePoint.PointId).Select(o2 => o2.BillId).DefaultIfEmpty(0).Max();
+                    if (maxBillID == 0)
                     {
-                        cusContract.dActivedate = cusContract.ServicePoint.ActiveDate;
-                        cusContract.isFixActivedate = true;
-                    }
-                    else
-                    {
-                        //lấy ngày đầu kỳ đã tính hóa đơn + 1
-                        decimal maxBillID = 0;
-                        maxBillID = db.Bill_ElectricityBillDetail.Where(o => o.DepartmentId == concusContract.DepartmentId
-                                    && o.PointId == cusContract.ServicePoint.PointId).Select(o2 => o2.BillId).DefaultIfEmpty(0).Max();
+                        //trường hợp là điểm đo đầu nguồn
+                        maxBillID = _dbContext.Loss_ElectricityBillDetail.Where(o => o.DepartmentId == concusContract.DepartmentId
+                                && o.PointId == cusContract.ServicePoint.PointId).Select(o2 => o2.BillId).DefaultIfEmpty(0).Max();
                         if (maxBillID == 0)
                         {
-                            //trường hợp là điểm đo đầu nguồn
-                            maxBillID = db.Loss_ElectricityBillDetail.Where(o => o.DepartmentId == concusContract.DepartmentId
-                                    && o.PointId == cusContract.ServicePoint.PointId).Select(o2 => o2.BillId).DefaultIfEmpty(0).Max();
-                            if (maxBillID == 0)
-                            {
-                                cusContract.dActivedate = cusContract.ServicePoint.ActiveDate;
-                                cusContract.isFixActivedate = true;
-                            }
-                            else
-                            {
-                                var ngayhdon = db.Loss_ElectricityBill.Where(o => o.BillId == maxBillID).FirstOrDefault().EndDate;
-                                cusContract.dActivedate = ngayhdon.AddDays(1);
-                            }
+                            cusContract.dActivedate = cusContract.ServicePoint.ActiveDate;
+                            cusContract.isFixActivedate = true;
                         }
                         else
                         {
-                            var ngayhdon = db.Bill_ElectricityBill.Where(o => o.BillId == maxBillID).FirstOrDefault().EndDate;
+                            var ngayhdon = _dbContext.Loss_ElectricityBill.Where(o => o.BillId == maxBillID).FirstOrDefault().EndDate;
                             cusContract.dActivedate = ngayhdon.AddDays(1);
                         }
-
-
+                    }
+                    else
+                    {
+                        var ngayhdon = _dbContext.Bill_ElectricityBill.Where(o => o.BillId == maxBillID).FirstOrDefault().EndDate;
+                        cusContract.dActivedate = ngayhdon.AddDays(1);
                     }
 
-                    // lấy ra danh sách bộ chỉ số
-                    var servicePointTypes = db.Category_ServicePointType.Where(item => item.ServicePointType == (cusContract.ServicePoint.ServicePointType)).Select(item => new Category_ServicePointTypeModel
-                    {
-                        TimeOfUse = item.TimeOfUse
-                    }).Distinct().ToList();
 
-                    // lay ra danh sach gia, phải lọc theo giá đang áp dụng, giá theo cấp điện áp.
-                    var categoryPrice = (from D in db.Category_PotentialReference
-                                         join E in db.Category_Price on D.PotentialSpace equals E.PotentialSpace
-                                         where D.OccupationsGroupCode == E.OccupationsGroupCode
-                                            && D.PotentialCode == cusContract.ServicePoint.PotentialCode.ToString()
-                                            && E.ActiveDate <= DateTime.Now && DateTime.Now < (DateTime)E.EndDate.Value
-                                         select new Category_PriceModel
-                                         {
-                                             OccupationsGroupCode = E.OccupationsGroupCode + "-" + E.Time + "-" + E.Price + "   [" + E.Description + "]",
-                                             PriceId = E.PriceId,
-                                             Description = E.Description,
-                                             Time = E.Time
-                                         }).ToList();
-
-                    var response = new
-                    {
-                        Customer_Contract = cusContract,
-                        Concus_ImposedPrices = Concus_ImposedPrice,
-                        ServicePointTypes = servicePointTypes,
-                        CategoryPrices = categoryPrice
-                    };
-
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = response;
-                    return createResponse();
                 }
+
+                // lấy ra danh sách bộ chỉ số
+                var servicePointTypes = _dbContext.Category_ServicePointType.Where(item => item.ServicePointType == (cusContract.ServicePoint.ServicePointType)).Select(item => new Category_ServicePointTypeModel
+                {
+                    TimeOfUse = item.TimeOfUse
+                }).Distinct().ToList();
+
+                // lay ra danh sach gia, phải lọc theo giá đang áp dụng, giá theo cấp điện áp.
+                var categoryPrice = (from D in _dbContext.Category_PotentialReference
+                                     join E in _dbContext.Category_Price on D.PotentialSpace equals E.PotentialSpace
+                                     where D.OccupationsGroupCode == E.OccupationsGroupCode
+                                        && D.PotentialCode == cusContract.ServicePoint.PotentialCode.ToString()
+                                        && E.ActiveDate <= DateTime.Now && DateTime.Now < (DateTime)E.EndDate.Value
+                                     select new Category_PriceModel
+                                     {
+                                         OccupationsGroupCode = E.OccupationsGroupCode + "-" + E.Time + "-" + E.Price + "   [" + E.Description + "]",
+                                         PriceId = E.PriceId,
+                                         Description = E.Description,
+                                         Time = E.Time
+                                     }).ToList();
+
+                var response = new
+                {
+                    Customer_Contract = cusContract,
+                    Concus_ImposedPrices = Concus_ImposedPrice,
+                    ServicePointTypes = servicePointTypes,
+                    CategoryPrices = categoryPrice
+                };
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -386,42 +383,39 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                var OccupationsGroup =
+                    _dbContext.Category_Price.Where(item => item.PriceId.Equals(PriceId) && item.ActiveDate <= DateTime.Now && item.EndDate > DateTime.Now)
+                        .Select(item => new Category_PriceModel
+                        {
+                            OccupationsGroupCode = item.OccupationsGroupCode,
+                            Price = item.Price,
+                            PotentialCode = item.PotentialSpace,
+                            PriceGroupCode = item.PriceGroupCode,
+                            Time = item.Time,
+                            ActiveDate = item.ActiveDate
+                        }).FirstOrDefault();
+
+                var OccupationsGroupName =
+                    _dbContext.Category_OccupationsGroup.Where(item => item.OccupationsGroupCode.Equals(OccupationsGroup.OccupationsGroupCode))
+                        .Select(item => item.OccupationsGroupName)
+                        .FirstOrDefault();
+
+                var response = new
                 {
-                    var OccupationsGroup =
-                        db.Category_Price.Where(item => item.PriceId.Equals(PriceId) && item.ActiveDate <= DateTime.Now && item.EndDate > DateTime.Now)
-                            .Select(item => new Category_PriceModel
-                            {
-                                OccupationsGroupCode = item.OccupationsGroupCode,
-                                Price = item.Price,
-                                PotentialCode = item.PotentialSpace,
-                                PriceGroupCode = item.PriceGroupCode,
-                                Time = item.Time,
-                                ActiveDate = item.ActiveDate
-                            }).FirstOrDefault();
+                    OccupationsGroupCode = OccupationsGroup.OccupationsGroupCode,
+                    Price = OccupationsGroup.Price,
+                    PotentialCode = OccupationsGroup.PotentialCode,
+                    PriceGroupCode = OccupationsGroup.PriceGroupCode,
+                    Time = OccupationsGroup.Time,
+                    OccupationsGroupName = OccupationsGroupName,
+                    ActiveDate = OccupationsGroup.ActiveDate.Day + "/" + OccupationsGroup.ActiveDate.Month + "/" + OccupationsGroup.ActiveDate.Year,
 
-                    var OccupationsGroupName =
-                        db.Category_OccupationsGroup.Where(item => item.OccupationsGroupCode.Equals(OccupationsGroup.OccupationsGroupCode))
-                            .Select(item => item.OccupationsGroupName)
-                            .FirstOrDefault();
+                };
 
-                    var response = new
-                    {
-                        OccupationsGroupCode = OccupationsGroup.OccupationsGroupCode,
-                        Price = OccupationsGroup.Price,
-                        PotentialCode = OccupationsGroup.PotentialCode,
-                        PriceGroupCode = OccupationsGroup.PriceGroupCode,
-                        Time = OccupationsGroup.Time,
-                        OccupationsGroupName = OccupationsGroupName,
-                        ActiveDate = OccupationsGroup.ActiveDate.Day + "/" + OccupationsGroup.ActiveDate.Month + "/" + OccupationsGroup.ActiveDate.Year,
-
-                    };
-
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = response;
-                    return createResponse();
-                }
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -436,37 +430,34 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         [Route("AddImposedPrice")]
         public HttpResponseMessage AddImposedPrice(List<Concus_ImposedPriceModel> myArray)
         {
-            using (var db = new CCISContext())
+            using (var _dbContextTransaction = _dbContext.Database.BeginTransaction())
             {
-                using (var dbContextTransaction = db.Database.BeginTransaction())
+                try
                 {
-                    try
-                    {
-                        var departmentId = TokenHelper.GetDepartmentIdFromToken();
-                        var userId = TokenHelper.GetUserIdFromToken();
+                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                    var userId = TokenHelper.GetUserIdFromToken();
 
-                        for (int i = 0; i < myArray.Count; i++)
-                        {
-                            Concus_ImposedPriceModel prime = myArray[i];
-                            prime.CreateDate = DateTime.Now;
-                            prime.CreateUser = userId;
-                            prime.DepartmentId = departmentId;
-                            business_Concus_ImposedPrice.AddConcus_ImposedPrice(prime, db);
-                        }
-                        dbContextTransaction.Commit();
-
-                        respone.Status = 1;
-                        respone.Message = "Thêm biên bản áp giá thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
-                    catch (Exception ex)
+                    for (int i = 0; i < myArray.Count; i++)
                     {
-                        respone.Status = 0;
-                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
-                        respone.Data = null;
-                        return createResponse();
+                        Concus_ImposedPriceModel prime = myArray[i];
+                        prime.CreateDate = DateTime.Now;
+                        prime.CreateUser = userId;
+                        prime.DepartmentId = departmentId;
+                        business_Concus_ImposedPrice.AddConcus_ImposedPrice(prime, _dbContext);
                     }
+                    _dbContextTransaction.Commit();
+
+                    respone.Status = 1;
+                    respone.Message = "Thêm biên bản áp giá thành công.";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                catch (Exception ex)
+                {
+                    respone.Status = 0;
+                    respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
         }
@@ -584,18 +575,18 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         //{
         //    try
         //    {
-        //        using (var db = new CCISContext())
+        //        using (var _dbContext = new CCISContext())
         //        {
         //            var a = Convert.ToInt32(fileId);
-        //            var fileurl = db.Concus_ContractFile.Where(item => item.FileId == a).Select(item => item.FileUrl).FirstOrDefault();
+        //            var fileurl = _dbContext.Concus_ContractFile.Where(item => item.FileId == a).Select(item => item.FileUrl).FirstOrDefault();
         //            string fullPath = Request.MapPath("~" + fileurl);
         //            if (System.IO.File.Exists(fullPath))
         //            {
         //                System.IO.File.Delete(fullPath);
         //            }
-        //            var b = db.Concus_ContractFile.Where(item => item.FileId == a).FirstOrDefault();
-        //            db.Concus_ContractFile.Remove(b);
-        //            db.SaveChanges();
+        //            var b = _dbContext.Concus_ContractFile.Where(item => item.FileId == a).FirstOrDefault();
+        //            _dbContext.Concus_ContractFile.Remove(b);
+        //            _dbContext.SaveChanges();
         //        }
         //    }
         //    catch (Exception ex)
@@ -717,14 +708,11 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    int contractId = 0;
-                    var target = db.Concus_ContractDetail.Where(item => item.ContractDetailId == contractDetailId).FirstOrDefault();
-                    contractId = target.ContractId;
-                    db.Concus_ContractDetail.Remove(target);
-                    db.SaveChanges();
-                }
+                int contractId = 0;
+                var target = _dbContext.Concus_ContractDetail.Where(item => item.ContractDetailId == contractDetailId).FirstOrDefault();
+                contractId = target.ContractId;
+                _dbContext.Concus_ContractDetail.Remove(target);
+                _dbContext.SaveChanges();
 
                 respone.Status = 1;
                 respone.Message = "Xóa dịch vụ thành công.";
@@ -747,28 +735,25 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var model = db.Concus_ContractDetail.Where(item => item.ServiceTypeId == EnumMethod.ServiceType.NONTAI
-                        && item.Concus_Contract.Concus_Customer.TaxCode.Contains(taxCode)
-                        && item.Concus_Contract.Concus_Customer.CustomerCode.Contains(customerCode)
-                        && item.Concus_Contract.ActiveDate <= DateTime.Now
-                        && item.Concus_Contract.EndDate >= DateTime.Now
-                        && item.Concus_Contract.ReasonId == null).Select(item => new Concus_ContractDetailModel()
-                        {
-                            ContractDetailId = item.ContractDetailId,
-                            Price = item.Price,
-                            Description = item.Description,
-                            TaxCode = item.Concus_Contract.Concus_Customer.TaxCode,
-                            CustomerCode = item.Concus_Contract.Concus_Customer.CustomerCode,
-                            CustomerName = item.Concus_Contract.Concus_Customer.Name,
-                        }).ToList();
+                var model = _dbContext.Concus_ContractDetail.Where(item => item.ServiceTypeId == EnumMethod.ServiceType.NONTAI
+                    && item.Concus_Contract.Concus_Customer.TaxCode.Contains(taxCode)
+                    && item.Concus_Contract.Concus_Customer.CustomerCode.Contains(customerCode)
+                    && item.Concus_Contract.ActiveDate <= DateTime.Now
+                    && item.Concus_Contract.EndDate >= DateTime.Now
+                    && item.Concus_Contract.ReasonId == null).Select(item => new Concus_ContractDetailModel()
+                    {
+                        ContractDetailId = item.ContractDetailId,
+                        Price = item.Price,
+                        Description = item.Description,
+                        TaxCode = item.Concus_Contract.Concus_Customer.TaxCode,
+                        CustomerCode = item.Concus_Contract.Concus_Customer.CustomerCode,
+                        CustomerName = item.Concus_Contract.Concus_Customer.Name,
+                    }).ToList();
 
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = model;
-                    return createResponse();
-                }
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -785,27 +770,25 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var contractLog = db.Concus_Contract_Log.Where(item => item.ContractId == contractId).OrderByDescending(item => item.Id).Take(1).ToList();
+                var contractLog = _dbContext.Concus_Contract_Log.Where(item => item.ContractId == contractId).OrderByDescending(item => item.Id).Take(1).ToList();
 
-                    var contract = db.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault();
-                    contract.ContractId = contractLog[0].ContractId;
-                    contract.ContractCode = contractLog[0].ContractCode;
-                    contract.ContractTypeId = contractLog[0].ContractTypeId;
-                    contract.DepartmentId = contractLog[0].DepartmentId;
-                    contract.ReasonId = contractLog[0].ReasonId;
-                    contract.SignatureDate = contractLog[0].SignatureDate;
-                    contract.ActiveDate = contractLog[0].ActiveDate;
-                    contract.EndDate = contractLog[0].EndDate;
-                    contract.CreateDate = contractLog[0].CreateDate;
-                    contract.CreateUser = contractLog[0].CreateUser;
-                    contract.Note = contractLog[0].Note;
-                    db.SaveChanges();
+                var contract = _dbContext.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault();
+                contract.ContractId = contractLog[0].ContractId;
+                contract.ContractCode = contractLog[0].ContractCode;
+                contract.ContractTypeId = contractLog[0].ContractTypeId;
+                contract.DepartmentId = contractLog[0].DepartmentId;
+                contract.ReasonId = contractLog[0].ReasonId;
+                contract.SignatureDate = contractLog[0].SignatureDate;
+                contract.ActiveDate = contractLog[0].ActiveDate;
+                contract.EndDate = contractLog[0].EndDate;
+                contract.CreateDate = contractLog[0].CreateDate;
+                contract.CreateUser = contractLog[0].CreateUser;
+                contract.Note = contractLog[0].Note;
+                _dbContext.SaveChanges();
 
-                    contractLog.Remove(contractLog[0]);
-                    db.SaveChanges();
-                }
+                contractLog.Remove(contractLog[0]);
+                _dbContext.SaveChanges();
+
 
                 respone.Status = 1;
                 respone.Message = "Khôi phục hợp đồng thành công.";
@@ -822,148 +805,141 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         }
         private Concus_ContractDetailViewModel GetCustomerInfoByContract(int contractId)
         {
-            using (var db = new CCISContext())
-            {                
-                Concus_ContractDetailViewModel viewModel = new Concus_ContractDetailViewModel();
+            Concus_ContractDetailViewModel viewModel = new Concus_ContractDetailViewModel();
 
-                viewModel.ContractDetail = new Concus_ContractDetailModel();
-                viewModel.ContractDetail.ContractId = contractId;
+            viewModel.ContractDetail = new Concus_ContractDetailModel();
+            viewModel.ContractDetail.ContractId = contractId;
 
-                //get customerId
-                int customerId = db.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault().CustomerId;
-                
-                var customerModel = db.Concus_Customer.Where(item => item.CustomerId == customerId).Select(item => new Concus_CustomerModel()
-                {
-                    Address = item.Address,
-                    BankAccount = item.BankAccount,
-                    BankName = item.BankName,
-                    CustomerCode = item.CustomerCode,
-                    CustomerId = item.CustomerId,
-                    DepartmentId = item.DepartmentId,
-                    Email = item.Email,
-                    Fax = item.Fax,
-                    Gender = item.Gender,
-                    InvoiceAddress = item.InvoiceAddress,
-                    Name = item.Name,
-                    OccupationsGroupCode = item.OccupationsGroupCode,
-                    PhoneCustomerCare = item.PhoneCustomerCare,
-                    PhoneNumber = item.PhoneNumber,
-                    Ratio = item.Ratio,
-                    Status = item.Status,
-                    TaxCode = item.TaxCode
-                }).FirstOrDefault();
-                viewModel.Customer = customerModel;
+            //get customerId
+            int customerId = _dbContext.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault().CustomerId;
 
-                var listContractDetail = db.Concus_ContractDetail.Where(item => item.ContractId == contractId).Select(item => new Concus_ContractDetailModel()
-                {
-                    ServiceName = item.Bill_ServiceType.ServiceName,
-                    Price = item.Price,
-                    Description = item.Description,
-                    ContractDetailId = item.ContractDetailId,
-                    ContractId = item.ContractId
-                }).ToList();
-                if (listContractDetail == null)
-                {
-                    listContractDetail = new List<Concus_ContractDetailModel>();
-                }
-                viewModel.ListContractDetail = listContractDetail;
+            var customerModel = _dbContext.Concus_Customer.Where(item => item.CustomerId == customerId).Select(item => new Concus_CustomerModel()
+            {
+                Address = item.Address,
+                BankAccount = item.BankAccount,
+                BankName = item.BankName,
+                CustomerCode = item.CustomerCode,
+                CustomerId = item.CustomerId,
+                DepartmentId = item.DepartmentId,
+                Email = item.Email,
+                Fax = item.Fax,
+                Gender = item.Gender,
+                InvoiceAddress = item.InvoiceAddress,
+                Name = item.Name,
+                OccupationsGroupCode = item.OccupationsGroupCode,
+                PhoneCustomerCare = item.PhoneCustomerCare,
+                PhoneNumber = item.PhoneNumber,
+                Ratio = item.Ratio,
+                Status = item.Status,
+                TaxCode = item.TaxCode
+            }).FirstOrDefault();
+            viewModel.Customer = customerModel;
 
-                return viewModel;
+            var listContractDetail = _dbContext.Concus_ContractDetail.Where(item => item.ContractId == contractId).Select(item => new Concus_ContractDetailModel()
+            {
+                ServiceName = item.Bill_ServiceType.ServiceName,
+                Price = item.Price,
+                Description = item.Description,
+                ContractDetailId = item.ContractDetailId,
+                ContractId = item.ContractId
+            }).ToList();
+            if (listContractDetail == null)
+            {
+                listContractDetail = new List<Concus_ContractDetailModel>();
             }
+            viewModel.ListContractDetail = listContractDetail;
+
+            return viewModel;
         }
         private Concus_ContractDetailViewModel GetCustomerInfoByContract(int contractId, int contractDetailId)
         {
-            using (var db = new CCISContext())
+            Concus_ContractDetailViewModel viewModel = new Concus_ContractDetailViewModel();
+
+            viewModel.ContractDetail = new Concus_ContractDetailModel();
+            viewModel.ContractDetail.ContractId = contractId;
+
+            //get customerId
+            int customerId = _dbContext.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault().CustomerId;
+
+            var customerModel = _dbContext.Concus_Customer.Where(item => item.CustomerId == customerId).Select(item => new Concus_CustomerModel()
             {
+                Address = item.Address,
+                BankAccount = item.BankAccount,
+                BankName = item.BankName,
+                CustomerCode = item.CustomerCode,
+                CustomerId = item.CustomerId,
+                DepartmentId = item.DepartmentId,
+                Email = item.Email,
+                Fax = item.Fax,
+                Gender = item.Gender,
+                InvoiceAddress = item.InvoiceAddress,
+                Name = item.Name,
+                OccupationsGroupCode = item.OccupationsGroupCode,
+                PhoneCustomerCare = item.PhoneCustomerCare,
+                PhoneNumber = item.PhoneNumber,
+                Ratio = item.Ratio,
+                Status = item.Status,
+                TaxCode = item.TaxCode
+            }).FirstOrDefault();
+            viewModel.Customer = customerModel;
 
-                Concus_ContractDetailViewModel viewModel = new Concus_ContractDetailViewModel();
+            var listContractDetail = _dbContext.Concus_ContractDetail.Where(item => item.ContractId == contractId).Select(item => new Concus_ContractDetailModel()
+            {
+                ServiceName = item.Bill_ServiceType.ServiceName,
+                Price = item.Price,
+                Description = item.Description,
+                ContractDetailId = item.ContractDetailId,
+                ContractId = item.ContractId
+            }).ToList();
+            viewModel.ListContractDetail = listContractDetail;
 
-                viewModel.ContractDetail = new Concus_ContractDetailModel();
-                viewModel.ContractDetail.ContractId = contractId;
+            var contractDetail = _dbContext.Concus_ContractDetail.Where(item => item.ContractDetailId == contractDetailId).FirstOrDefault();
 
-                //get customerId
-                int customerId = db.Concus_Contract.Where(item => item.ContractId == contractId).FirstOrDefault().CustomerId;
+            var contractDetailModel = new Concus_ContractDetailModel();
+            contractDetailModel.ContractId = contractDetail.ContractId;
+            contractDetailModel.ActiveDate = contractDetail.ActiveDate;
+            contractDetailModel.ContractDetailId = contractDetail.ContractDetailId;
+            contractDetailModel.Description = contractDetail.Description;
+            contractDetailModel.EndDate = contractDetail.EndDate;
+            contractDetailModel.Po = contractDetail.Po;
+            contractDetailModel.PointId = contractDetail.PointId.Split(',').ToList();
+            contractDetailModel.Price = contractDetail.Price;
+            contractDetailModel.S = contractDetail.S;
+            contractDetailModel.ServiceName = contractDetail.Bill_ServiceType.ServiceName;
+            contractDetailModel.ServiceTypeId = contractDetail.ServiceTypeId;
+            contractDetailModel.WorkDay = contractDetail.WorkDay;
+            contractDetailModel.WorkHour = contractDetail.WorkHour;
 
-                var customerModel = db.Concus_Customer.Where(item => item.CustomerId == customerId).Select(item => new Concus_CustomerModel()
+            if (contractDetail.ServiceTypeId == CommonDefault.ServiceType.QLVH)
+            {
+                var QL = contractDetail.Formula != null ? contractDetail.Formula : "";
+                var formula = QL.Split(';');
+                if (formula.Count() == 1 && formula[0] != "")
                 {
-                    Address = item.Address,
-                    BankAccount = item.BankAccount,
-                    BankName = item.BankName,
-                    CustomerCode = item.CustomerCode,
-                    CustomerId = item.CustomerId,
-                    DepartmentId = item.DepartmentId,
-                    Email = item.Email,
-                    Fax = item.Fax,
-                    Gender = item.Gender,
-                    InvoiceAddress = item.InvoiceAddress,
-                    Name = item.Name,
-                    OccupationsGroupCode = item.OccupationsGroupCode,
-                    PhoneCustomerCare = item.PhoneCustomerCare,
-                    PhoneNumber = item.PhoneNumber,
-                    Ratio = item.Ratio,
-                    Status = item.Status,
-                    TaxCode = item.TaxCode
-                }).FirstOrDefault();
-                viewModel.Customer = customerModel;
+                    var result = formula[0].Split('|');
 
-                var listContractDetail = db.Concus_ContractDetail.Where(item => item.ContractId == contractId).Select(item => new Concus_ContractDetailModel()
-                {
-                    ServiceName = item.Bill_ServiceType.ServiceName,
-                    Price = item.Price,
-                    Description = item.Description,
-                    ContractDetailId = item.ContractDetailId,
-                    ContractId = item.ContractId
-                }).ToList();
-                viewModel.ListContractDetail = listContractDetail;
-
-                var contractDetail = db.Concus_ContractDetail.Where(item => item.ContractDetailId == contractDetailId).FirstOrDefault();
-
-                var contractDetailModel = new Concus_ContractDetailModel();
-                contractDetailModel.ContractId = contractDetail.ContractId;
-                contractDetailModel.ActiveDate = contractDetail.ActiveDate;
-                contractDetailModel.ContractDetailId = contractDetail.ContractDetailId;
-                contractDetailModel.Description = contractDetail.Description;
-                contractDetailModel.EndDate = contractDetail.EndDate;
-                contractDetailModel.Po = contractDetail.Po;
-                contractDetailModel.PointId = contractDetail.PointId.Split(',').ToList();
-                contractDetailModel.Price = contractDetail.Price;
-                contractDetailModel.S = contractDetail.S;
-                contractDetailModel.ServiceName = contractDetail.Bill_ServiceType.ServiceName;
-                contractDetailModel.ServiceTypeId = contractDetail.ServiceTypeId;
-                contractDetailModel.WorkDay = contractDetail.WorkDay;
-                contractDetailModel.WorkHour = contractDetail.WorkHour;
-
-                if (contractDetail.ServiceTypeId == CommonDefault.ServiceType.QLVH)
-                {
-                    var QL = contractDetail.Formula != null ? contractDetail.Formula : "";
-                    var formula = QL.Split(';');
-                    if (formula.Count() == 1 && formula[0] != "")
-                    {
-                        var result = formula[0].Split('|');
-
-                        contractDetailModel.PercentCD = result[1];
-                    }
-                    else if (formula.Count() > 1)
-                    {
-                        var result1 = formula[0].Split('|');
-                        var result2 = formula[1].Split('|');
-                        var result3 = formula[2].Split('|');
-                        var result4 = formula[3].Split('|');
-
-                        contractDetailModel.PercentB1 = result1[1];
-                        contractDetailModel.PercentB2 = result2[1];
-                        contractDetailModel.PercentB3 = result3[1];
-                        contractDetailModel.PercentBC = result4[1];
-                        contractDetailModel.QuotaB1 = result1[2];
-                        contractDetailModel.QuotaB2 = result2[2];
-                        contractDetailModel.QuotaB3 = result3[2];
-                    }
+                    contractDetailModel.PercentCD = result[1];
                 }
+                else if (formula.Count() > 1)
+                {
+                    var result1 = formula[0].Split('|');
+                    var result2 = formula[1].Split('|');
+                    var result3 = formula[2].Split('|');
+                    var result4 = formula[3].Split('|');
 
-                viewModel.ContractDetail = contractDetailModel;
-
-                return viewModel;
+                    contractDetailModel.PercentB1 = result1[1];
+                    contractDetailModel.PercentB2 = result2[1];
+                    contractDetailModel.PercentB3 = result3[1];
+                    contractDetailModel.PercentBC = result4[1];
+                    contractDetailModel.QuotaB1 = result1[2];
+                    contractDetailModel.QuotaB2 = result2[2];
+                    contractDetailModel.QuotaB3 = result3[2];
+                }
             }
+
+            viewModel.ContractDetail = contractDetailModel;
+
+            return viewModel;
         }
         #endregion
 
@@ -986,72 +962,69 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                     lstDep = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
                 }
 
-                using (var db = new CCISContext())
+                IEnumerable<ContractManagerViewerModel> listContract;
+
+                if (departmentId == 0)
                 {
-                    IEnumerable<ContractManagerViewerModel> listContract;
-
-                    if (departmentId == 0)
-                    {
-                        listContract = new List<ContractManagerViewerModel>();
-                    }
-                    else
-                    {
-                        listContract = (from cc in db.Concus_Contract
-                                        join cs in db.Concus_ServicePoint on cc.ContractId equals cs.ContractId
-                                        where lstDep.Contains(cc.DepartmentId)
-                                        select new ContractManagerViewerModel
-                                        {
-                                            CustomerId = cc.CustomerId,
-                                            ContractId = cc.ContractId,
-                                            DepartmentId = cc.DepartmentId,
-                                            ReasonId = cc.ReasonId,
-                                            ContractCode = cc.ContractCode,
-                                            ContractTypeId = cc.ContractTypeId,
-                                            SignatureDate = cc.SignatureDate,
-                                            ActiveDate = cc.ActiveDate,
-                                            EndDate = cc.EndDate,
-                                            CreateDate = cc.CreateDate,
-                                            CreateUser = cc.CreateUser,
-                                            Name = cc.Concus_Customer.Name,
-                                            TypeName = cc.Category_ContractType.TypeName,
-                                            CustomerCode = cc.Concus_Customer.CustomerCode,
-                                            FigureBookId = cs.FigureBookId,
-                                            NumberOfPhases = cs.NumberOfPhases
-                                        });
-                    }
-
-                    if (figurebookId != 0)
-                    {
-                        listContract = listContract.Where(x => x.FigureBookId == figurebookId);
-                    }
-
-                    if (contracttypeId != 0)
-                    {
-                        listContract = listContract.Where(x => x.ContractTypeId == contracttypeId);
-                    }
-
-                    if (search != "")
-                    {
-                        listContract = listContract.Where(x => x.CustomerCode == search || x.ContractCode == search);
-                    }
-
-                    var paged = (IPagedList<ContractManagerViewerModel>)listContract.OrderByDescending(p => p.CustomerId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        paged.PageNumber,
-                        paged.PageSize,
-                        paged.TotalItemCount,
-                        paged.PageCount,
-                        paged.HasNextPage,
-                        paged.HasPreviousPage,
-                        Customers = paged.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách hợp đồng thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                    listContract = new List<ContractManagerViewerModel>();
                 }
+                else
+                {
+                    listContract = (from cc in _dbContext.Concus_Contract
+                                    join cs in _dbContext.Concus_ServicePoint on cc.ContractId equals cs.ContractId
+                                    where lstDep.Contains(cc.DepartmentId)
+                                    select new ContractManagerViewerModel
+                                    {
+                                        CustomerId = cc.CustomerId,
+                                        ContractId = cc.ContractId,
+                                        DepartmentId = cc.DepartmentId,
+                                        ReasonId = cc.ReasonId,
+                                        ContractCode = cc.ContractCode,
+                                        ContractTypeId = cc.ContractTypeId,
+                                        SignatureDate = cc.SignatureDate,
+                                        ActiveDate = cc.ActiveDate,
+                                        EndDate = cc.EndDate,
+                                        CreateDate = cc.CreateDate,
+                                        CreateUser = cc.CreateUser,
+                                        Name = cc.Concus_Customer.Name,
+                                        TypeName = cc.Category_ContractType.TypeName,
+                                        CustomerCode = cc.Concus_Customer.CustomerCode,
+                                        FigureBookId = cs.FigureBookId,
+                                        NumberOfPhases = cs.NumberOfPhases
+                                    });
+                }
+
+                if (figurebookId != 0)
+                {
+                    listContract = listContract.Where(x => x.FigureBookId == figurebookId);
+                }
+
+                if (contracttypeId != 0)
+                {
+                    listContract = listContract.Where(x => x.ContractTypeId == contracttypeId);
+                }
+
+                if (search != "")
+                {
+                    listContract = listContract.Where(x => x.CustomerCode == search || x.ContractCode == search);
+                }
+
+                var paged = (IPagedList<ContractManagerViewerModel>)listContract.OrderByDescending(p => p.CustomerId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    paged.PageNumber,
+                    paged.PageSize,
+                    paged.TotalItemCount,
+                    paged.PageCount,
+                    paged.HasNextPage,
+                    paged.HasPreviousPage,
+                    Customers = paged.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách hợp đồng thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -1068,22 +1041,19 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         {
             try
             {
-                using (var db = new CCISContext())
+                var lstTemplate = _dbContext.Category_ContractTemplate.Where(x => x.DepartmentId == departmentid).ToList();
+
+                var response = new
                 {
-                    var lstTemplate = db.Category_ContractTemplate.Where(x => x.DepartmentId == departmentid).ToList();
+                    contractId = contractId,
+                    lstTemplate = lstTemplate,
+                    ContractTypeId = ContractTypeId,
+                };
 
-                    var response = new
-                    {
-                        contractId = contractId,
-                        lstTemplate = lstTemplate,
-                        ContractTypeId = ContractTypeId,
-                    };
-
-                    respone.Status = 1;
-                    respone.Message = "OK";
-                    respone.Data = response;
-                    return createResponse();
-                }
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {

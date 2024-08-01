@@ -18,6 +18,12 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         private int pageSize = int.Parse(WebConfigurationManager.AppSettings["PageSize"]);
         private readonly Business_Administrator_Department administrator_Department = new Business_Administrator_Department();
         private readonly Business_Category_Stock business_CategoryStock = new Business_Category_Stock();
+        private readonly CCISContext _dbContext;
+
+        public Category_StockController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         [HttpGet]
         [Route("Category_StockManager")]
@@ -35,38 +41,35 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 //list đơn vị con của user đăng nhập
                 var lstDepCombo = DepartmentHelper.GetChildDepIds(administrator_Department.GetIddv(userInfo.UserName));
 
-                using (var db = new CCISContext())
+                var query = _dbContext.Category_Stock.Where(item => listDepartments.Contains(item.DepartmentId)).Select(item => new Category_StockModel
                 {
-                    var query = db.Category_Stock.Where(item => listDepartments.Contains(item.DepartmentId)).Select(item => new Category_StockModel
-                    {
-                        DepartmentId = item.DepartmentId,
-                        Description = item.Description,
-                        StockCode = item.StockCode,
-                        StockId = item.StockId
-                    });
+                    DepartmentId = item.DepartmentId,
+                    Description = item.Description,
+                    StockCode = item.StockCode,
+                    StockId = item.StockId
+                });
 
-                    if (!string.IsNullOrEmpty(search))
-                    {
-                        query = (IQueryable<Category_StockModel>)query.Where(item => item.Description.Contains(search) || item.StockCode.Contains(search));
-                    }
-
-                    var pagedStock = (IPagedList<Category_StockModel>)query.OrderBy(p => p.StockId).ToPagedList(pageNumber, pageSize);
-
-                    var response = new
-                    {
-                        pagedStock.PageNumber,
-                        pagedStock.PageSize,
-                        pagedStock.TotalItemCount,
-                        pagedStock.PageCount,
-                        pagedStock.HasNextPage,
-                        pagedStock.HasPreviousPage,
-                        Stocks = pagedStock.ToList()
-                    };
-                    respone.Status = 1;
-                    respone.Message = "Lấy danh sách kho thành công.";
-                    respone.Data = response;
-                    return createResponse();
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = (IQueryable<Category_StockModel>)query.Where(item => item.Description.Contains(search) || item.StockCode.Contains(search));
                 }
+
+                var pagedStock = (IPagedList<Category_StockModel>)query.OrderBy(p => p.StockId).ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    pagedStock.PageNumber,
+                    pagedStock.PageSize,
+                    pagedStock.TotalItemCount,
+                    pagedStock.PageCount,
+                    pagedStock.HasNextPage,
+                    pagedStock.HasPreviousPage,
+                    Stocks = pagedStock.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "Lấy danh sách kho thành công.";
+                respone.Data = response;
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -87,29 +90,27 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
                 {
                     throw new ArgumentException($"StockId {StockId} không hợp lệ.");
                 }
-                using (var dbContext = new CCISContext())
+
+                var Stock = _dbContext.Category_Stock.Where(p => p.StockId == StockId).Select(p => new Category_StockModel
                 {
-                    var Stock = dbContext.Category_Stock.Where(p => p.StockId == StockId).Select(p => new Category_StockModel
-                    {
-                        StockId = p.StockId,
-                        DepartmentId = p.DepartmentId,
-                        StockCode = p.StockCode,
-                        Description = p.Description
-                    });
+                    StockId = p.StockId,
+                    DepartmentId = p.DepartmentId,
+                    StockCode = p.StockCode,
+                    Description = p.Description
+                });
 
-                    if (Stock?.Any() == true)
-                    {
-                        var response = Stock.FirstOrDefault();
+                if (Stock?.Any() == true)
+                {
+                    var response = Stock.FirstOrDefault();
 
-                        respone.Status = 1;
-                        respone.Message = "Lấy thông tin kho thành công.";
-                        respone.Data = response;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        throw new ArgumentException($"Kho có StockId {StockId} không tồn tại.");
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Lấy thông tin kho thành công.";
+                    respone.Data = response;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException($"Kho có StockId {StockId} không tồn tại.");
                 }
             }
             catch (Exception ex)
@@ -136,23 +137,20 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
 
                 business_CategoryStock.AddCategory_Stock(model);
 
-                using (var dbContext = new CCISContext())
+                var kho = _dbContext.Category_Stock.Where(p => p.StockCode == model.StockCode).FirstOrDefault();
+                if (kho != null)
                 {
-                    var kho = dbContext.Category_Stock.Where(p => p.StockCode == model.StockCode).FirstOrDefault();
-                    if (kho != null)
-                    {
-                        respone.Status = 1;
-                        respone.Message = "Thêm mới kho thành công.";
-                        respone.Data = kho.StockId;
-                        return createResponse();
-                    }
-                    else
-                    {
-                        respone.Status = 0;
-                        respone.Message = "Thêm mới kho không thành công.";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                    respone.Status = 1;
+                    respone.Message = "Thêm mới kho thành công.";
+                    respone.Data = kho.StockId;
+                    return createResponse();
+                }
+                else
+                {
+                    respone.Status = 0;
+                    respone.Message = "Thêm mới kho không thành công.";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
             catch (Exception ex)
@@ -170,29 +168,26 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var dbContext = new CCISContext())
+                var kho = _dbContext.Category_Stock.Where(p => p.StockId == model.StockId).FirstOrDefault();
+                if (kho == null)
                 {
-                    var kho = dbContext.Category_Stock.Where(p => p.StockId == model.StockId).FirstOrDefault();
-                    if (kho == null)
-                    {
-                        throw new ArgumentException($"Không tồn tại StockId {model.StockId}");
-                    }
-
-                    #region Get DepartmentId From Token
-
-                    var departmentId = TokenHelper.GetDepartmentIdFromToken();
-
-                    model.DepartmentId = departmentId;
-                    #endregion
-
-                    business_CategoryStock.EditCategory_Stock(model);
-
-                    respone.Status = 1;
-                    respone.Message = "Chỉnh sửa kho thành công.";
-                    respone.Data = model.StockId;
-
-                    return createResponse();
+                    throw new ArgumentException($"Không tồn tại StockId {model.StockId}");
                 }
+
+                #region Get DepartmentId From Token
+
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                model.DepartmentId = departmentId;
+                #endregion
+
+                business_CategoryStock.EditCategory_Stock(model);
+
+                respone.Status = 1;
+                respone.Message = "Chỉnh sửa kho thành công.";
+                respone.Data = model.StockId;
+
+                return createResponse();
             }
             catch (Exception ex)
             {
@@ -209,13 +204,11 @@ namespace ES.CCIS.Host.Controllers.DanhMuc
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var target = db.Category_Stock.Where(item => item.StockId == stockId).FirstOrDefault();
+                var target = _dbContext.Category_Stock.Where(item => item.StockId == stockId).FirstOrDefault();
 
-                    db.Category_Stock.Remove(target);
-                    db.SaveChanges();
-                }
+                _dbContext.Category_Stock.Remove(target);
+                _dbContext.SaveChanges();
+
                 respone.Status = 1;
                 respone.Message = "Xóa kho thành công.";
                 respone.Data = null;

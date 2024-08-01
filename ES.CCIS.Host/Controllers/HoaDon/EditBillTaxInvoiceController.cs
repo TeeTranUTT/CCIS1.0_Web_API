@@ -26,6 +26,12 @@ namespace ES.CCIS.Host.Controllers.HoaDon
         private readonly Business_Administrator_Department businessDepartment = new Business_Administrator_Department();
         private readonly BillEdit_TaxInvoiceBUS billEdit_TaxInvoiceBUS = new BillEdit_TaxInvoiceBUS();
         private readonly Bussiness_TaxInVoice_Bill business_Index_Value = new Bussiness_TaxInVoice_Bill();
+        private readonly CCISContext _dbContext;
+
+        public EditBillTaxInvoiceController()
+        {
+            _dbContext = new CCISContext();
+        }
 
         #region Hóa đơn sửa sai
         [HttpGet]
@@ -96,28 +102,25 @@ namespace ES.CCIS.Host.Controllers.HoaDon
         {
             try
             {
-                using (var db = new CCISContext())
-                {
-                    var userId = TokenHelper.GetUserIdFromToken();
+                var userId = TokenHelper.GetUserIdFromToken();
 
-                    if ((model.SubTotal + model.VAT) != model.Total)
+                if ((model.SubTotal + model.VAT) != model.Total)
+                {
+                    throw new ArgumentException("Tiền trên hóa đơn không đúng! Thêm mới hóa đơn sửa sai không thành công.");
+                }
+                else
+                {
+                    var create = billEdit_TaxInvoiceBUS.CreateBill(model, userId);
+                    if (create)
                     {
-                        throw new ArgumentException("Tiền trên hóa đơn không đúng! Thêm mới hóa đơn sửa sai không thành công.");
+                        respone.Status = 1;
+                        respone.Message = "Thêm mới hóa đơn sửa sai thành công.";
+                        respone.Data = null;
+                        return createResponse();
                     }
                     else
                     {
-                        var create = billEdit_TaxInvoiceBUS.CreateBill(model, userId);
-                        if (create)
-                        {
-                            respone.Status = 1;
-                            respone.Message = "Thêm mới hóa đơn sửa sai thành công.";
-                            respone.Data = null;
-                            return createResponse();
-                        }
-                        else
-                        {
-                            throw new ArgumentException("Thêm mới hóa đơn sửa sai không thành công.");
-                        }
+                        throw new ArgumentException("Thêm mới hóa đơn sửa sai không thành công.");
                     }
                 }
             }
@@ -249,125 +252,122 @@ namespace ES.CCIS.Host.Controllers.HoaDon
         [Route("CreateReTaxInvoice")]
         public HttpResponseMessage CreateReTaxInvoice(CreateReTaxInvoiceInput input)
         {
-            using (var db = new CCISContext())
+            using (var _dbContextTransaction = _dbContext.Database.BeginTransaction())
             {
-                using (var dbContextTransaction = db.Database.BeginTransaction())
+                try
                 {
-                    try
+                    var userId = TokenHelper.GetUserIdFromToken();
+
+                    var dateNow = DateTime.Now;
+
+                    var taxinvoice = _dbContext.Bill_TaxInvoice.FirstOrDefault(r => r.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId);
+
+                    var taxinvoiceDetail = _dbContext.Bill_TaxInvoiceDetail.Where(r => r.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId).FirstOrDefault();
+
+                    var subTotal = Math.Round(input.ListBillTaxAdjust.AsEnumerable().Sum(x => x.Total));
+                    var Vat = Math.Round(subTotal * input.ReBillAdjustment.TaxRatio / 100);
+                    var Total = Math.Round(subTotal + Vat);
+
+                    var contractid = input.ReBillAdjustment.ContractId;
+                    var contractdetailid = _dbContext.Concus_ContractDetail.FirstOrDefault(x => x.ContractId == contractid && x.EndDateCV == null)?.ContractDetailId;
+
+                    /*
+                    * Thêm mới dữ liệu bảng Bill_TaxInvoice
+                    */
+                    var bill_taxinvoice = new Bill_TaxInvoice
                     {
-                        var userId = TokenHelper.GetUserIdFromToken();
+                        CustomerCode = input.ReBillAdjustment.CustomerCode,
+                        ContractId = input.ReBillAdjustment.ContractId,
+                        CreateUser = userId,
+                        DepartmentId = input.ReBillAdjustment.DepartmentId,
+                        IdDevice = null/*0*/,
+                        SubTotal = subTotal,
+                        VAT = Vat,
+                        Year = input.ReBillAdjustment.Year,
+                        Month = input.ReBillAdjustment.Month,
+                        CreateDate = dateNow,
+                        TaxRatio = input.ReBillAdjustment.TaxRatio,
+                        BillType = input.ReBillAdjustment.BillType,
+                        Total = Total,
+                        CustomerId = input.ReBillAdjustment.CustomerId,
+                        CustomerCode_Pay = input.ReBillAdjustment.CustomerCode_Pay,
+                        TaxCode = input.ReBillAdjustment.TaxCode,
+                        TaxInvoiceAddress = input.ReBillAdjustment.TaxInvoiceAddress,
+                        Address_Pay = input.ReBillAdjustment.Address_Pay,
+                        BankName = input.ReBillAdjustment.BankName,
+                        BankAccount = input.ReBillAdjustment.BankAccount,
+                        CustomerName = input.ReBillAdjustment.CustomerName,
+                        CustomerId_Pay = input.ReBillAdjustment.CustomerId_Pay,
+                        CustomerName_Pay = input.ReBillAdjustment.CustomerName_Pay
+                    };
 
-                        var dateNow = DateTime.Now;
+                    _dbContext.Bill_TaxInvoice.Add(bill_taxinvoice);
 
-                        var taxinvoice = db.Bill_TaxInvoice.FirstOrDefault(r => r.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId);
+                    _dbContext.SaveChanges();
 
-                        var taxinvoiceDetail = db.Bill_TaxInvoiceDetail.Where(r => r.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId).FirstOrDefault();
-
-                        var subTotal = Math.Round(input.ListBillTaxAdjust.AsEnumerable().Sum(x => x.Total));
-                        var Vat = Math.Round(subTotal * input.ReBillAdjustment.TaxRatio / 100);
-                        var Total = Math.Round(subTotal + Vat);
-
-                        var contractid = input.ReBillAdjustment.ContractId;
-                        var contractdetailid = db.Concus_ContractDetail.FirstOrDefault(x => x.ContractId == contractid && x.EndDateCV == null)?.ContractDetailId;
-
-                        /*
-                        * Thêm mới dữ liệu bảng Bill_TaxInvoice
-                        */
-                        var bill_taxinvoice = new Bill_TaxInvoice
+                    /*
+                    * Thêm mới dữ liệu bảng Bill_TaxInvoiceDetail
+                    */
+                    foreach (var item in input.ListBillTaxAdjust)
+                    {
+                        var bill_TaxInvoiceDetail = new Bill_TaxInvoiceDetail
                         {
+                            TaxInvoiceId = bill_taxinvoice.TaxInvoiceId,
+                            DepartmentId = input.ReBillAdjustment.DepartmentId,
+                            CustomerId = input.ReBillAdjustment.CustomerId,
                             CustomerCode = input.ReBillAdjustment.CustomerCode,
-                            ContractId = input.ReBillAdjustment.ContractId,
-                            CreateUser = userId,
-                            DepartmentId = input.ReBillAdjustment.DepartmentId,
-                            IdDevice = null/*0*/,
-                            SubTotal = subTotal,
-                            VAT = Vat,
-                            Year = input.ReBillAdjustment.Year,
+                            ServiceTypeId = item.ServiceTypeId,
+                            FigureBookId = taxinvoiceDetail.FigureBookId,
                             Month = input.ReBillAdjustment.Month,
-                            CreateDate = dateNow,
-                            TaxRatio = input.ReBillAdjustment.TaxRatio,
-                            BillType = input.ReBillAdjustment.BillType,
-                            Total = Total,
-                            CustomerId = input.ReBillAdjustment.CustomerId,
-                            CustomerCode_Pay = input.ReBillAdjustment.CustomerCode_Pay,
-                            TaxCode = input.ReBillAdjustment.TaxCode,
-                            TaxInvoiceAddress = input.ReBillAdjustment.TaxInvoiceAddress,
-                            Address_Pay = input.ReBillAdjustment.Address_Pay,
-                            BankName = input.ReBillAdjustment.BankName,
-                            BankAccount = input.ReBillAdjustment.BankAccount,
-                            CustomerName = input.ReBillAdjustment.CustomerName,
-                            CustomerId_Pay = input.ReBillAdjustment.CustomerId_Pay,
-                            CustomerName_Pay = input.ReBillAdjustment.CustomerName_Pay
-                        };
-
-                        db.Bill_TaxInvoice.Add(bill_taxinvoice);
-
-                        db.SaveChanges();
-
-                        /*
-                        * Thêm mới dữ liệu bảng Bill_TaxInvoiceDetail
-                        */
-                        foreach (var item in input.ListBillTaxAdjust)
-                        {
-                            var bill_TaxInvoiceDetail = new Bill_TaxInvoiceDetail
-                            {
-                                TaxInvoiceId = bill_taxinvoice.TaxInvoiceId,
-                                DepartmentId = input.ReBillAdjustment.DepartmentId,
-                                CustomerId = input.ReBillAdjustment.CustomerId,
-                                CustomerCode = input.ReBillAdjustment.CustomerCode,
-                                ServiceTypeId = item.ServiceTypeId,
-                                FigureBookId = taxinvoiceDetail.FigureBookId,
-                                Month = input.ReBillAdjustment.Month,
-                                Year = input.ReBillAdjustment.Year,
-                                Total = item.Total,
-                                CreateUser = userId,
-                                Amount = item.Amount,
-                                TypeOfUnit = item.TypeOfUnit,
-                                Price = item.Price,
-                                ServiceName = item.ServiceName,
-                                CreateDate = dateNow,
-                                ContractDetailId = contractdetailid,
-                            };
-
-                            db.Bill_TaxInvoiceDetail.Add(bill_TaxInvoiceDetail);
-                            db.SaveChanges();
-                        }
-
-                        /*
-                         * Thêm mới bảng trung gian
-                         */
-                        var taxInvoiceAdjustment = new Bill_Taxinvoice_Adjustment
-                        {
-                            TaxInvoiceId = input.ReBillAdjustment.TaxInvoiceId,
-                            TaxInvoice_AdjustmentId = bill_taxinvoice.TaxInvoiceId,
-                            CustomerId = input.ReBillAdjustment.CustomerId,
-                            DepartmentId = input.ReBillAdjustment.DepartmentId,
-                            TypeOfFunction = "LL",
-                            CreateDate = dateNow,
+                            Year = input.ReBillAdjustment.Year,
+                            Total = item.Total,
                             CreateUser = userId,
+                            Amount = item.Amount,
+                            TypeOfUnit = item.TypeOfUnit,
+                            Price = item.Price,
+                            ServiceName = item.ServiceName,
+                            CreateDate = dateNow,
+                            ContractDetailId = contractdetailid,
                         };
 
-                        db.Bill_Taxinvoice_Adjustment.Add(taxInvoiceAdjustment);
-
-                        //Cập nhật trang thái Liabilities_TrackDebt_TaxInvoice
-                        var liaTax = db.Liabilities_TrackDebt_TaxInvoice.Where(x => x.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId).FirstOrDefault();
-                        liaTax.Status = 3;
-
-                        db.SaveChanges();
-                        dbContextTransaction.Commit();
-
-                        respone.Status = 1;
-                        respone.Message = "Lập lại hóa đơn thành công.";
-                        respone.Data = null;
-                        return createResponse();                        
+                        _dbContext.Bill_TaxInvoiceDetail.Add(bill_TaxInvoiceDetail);
+                        _dbContext.SaveChanges();
                     }
-                    catch (Exception ex)
+
+                    /*
+                     * Thêm mới bảng trung gian
+                     */
+                    var taxInvoiceAdjustment = new Bill_Taxinvoice_Adjustment
                     {
-                        respone.Status = 0;
-                        respone.Message = $"Lỗi: {ex.Message.ToString()}";
-                        respone.Data = null;
-                        return createResponse();
-                    }
+                        TaxInvoiceId = input.ReBillAdjustment.TaxInvoiceId,
+                        TaxInvoice_AdjustmentId = bill_taxinvoice.TaxInvoiceId,
+                        CustomerId = input.ReBillAdjustment.CustomerId,
+                        DepartmentId = input.ReBillAdjustment.DepartmentId,
+                        TypeOfFunction = "LL",
+                        CreateDate = dateNow,
+                        CreateUser = userId,
+                    };
+
+                    _dbContext.Bill_Taxinvoice_Adjustment.Add(taxInvoiceAdjustment);
+
+                    //Cập nhật trang thái Liabilities_TrackDebt_TaxInvoice
+                    var liaTax = _dbContext.Liabilities_TrackDebt_TaxInvoice.Where(x => x.TaxInvoiceId == input.ReBillAdjustment.TaxInvoiceId).FirstOrDefault();
+                    liaTax.Status = 3;
+
+                    _dbContext.SaveChanges();
+                    _dbContextTransaction.Commit();
+
+                    respone.Status = 1;
+                    respone.Message = "Lập lại hóa đơn thành công.";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                catch (Exception ex)
+                {
+                    respone.Status = 0;
+                    respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                    respone.Data = null;
+                    return createResponse();
                 }
             }
         }
@@ -383,58 +383,28 @@ namespace ES.CCIS.Host.Controllers.HoaDon
 
                 if (taxInvoiceId != 0)
                 {
-                    using (var db = new CCISContext())
+                    var _customerCode = (from taxInvoice in _dbContext.Bill_TaxInvoice
+                                         where taxInvoice.TaxInvoiceId == taxInvoiceId
+                                         select new { taxInvoice.CustomerCode }).FirstOrDefault();
+
+                    var concusCustomer = (from customer in _dbContext.Concus_Customer.Where(x => x.CustomerCode == _customerCode.CustomerCode && x.Status == 1 && x.DepartmentId == departmentId)
+                                          join contract in _dbContext.Concus_Contract
+                                          on customer.CustomerId equals contract.CustomerId
+                                          join service in _dbContext.Concus_ServicePoint
+                                          on contract.ContractId equals service.ContractId
+                                          select new { customer, contract, service }).FirstOrDefault();
+
+                    var contractDetail = (from detail in _dbContext.Concus_ContractDetail
+                                          join contract in _dbContext.Concus_Contract
+                                          on detail.ContractId equals contract.ContractId
+                                          where contract.CustomerId == concusCustomer.customer.CustomerId
+                                          select detail).ToList();
+
+                    List<CreateTaxInvoiceEditBillItem> billTax = new List<CreateTaxInvoiceEditBillItem>();
+
+                    if (contractDetail.Count > 0)
                     {
-                        var _customerCode = (from taxInvoice in db.Bill_TaxInvoice
-                                             where taxInvoice.TaxInvoiceId == taxInvoiceId
-                                             select new { taxInvoice.CustomerCode }).FirstOrDefault();
-
-                        var concusCustomer = (from customer in db.Concus_Customer.Where(x => x.CustomerCode == _customerCode.CustomerCode && x.Status == 1 && x.DepartmentId == departmentId)
-                                              join contract in db.Concus_Contract
-                                              on customer.CustomerId equals contract.CustomerId
-                                              join service in db.Concus_ServicePoint
-                                              on contract.ContractId equals service.ContractId
-                                              select new { customer, contract, service }).FirstOrDefault();
-
-                        var contractDetail = (from detail in db.Concus_ContractDetail
-                                              join contract in db.Concus_Contract
-                                              on detail.ContractId equals contract.ContractId
-                                              where contract.CustomerId == concusCustomer.customer.CustomerId
-                                              select detail).ToList();
-
-                        List<CreateTaxInvoiceEditBillItem> billTax = new List<CreateTaxInvoiceEditBillItem>();
-
-                        if (contractDetail.Count > 0)
-                        {
-                            contractDetail.ForEach(item =>
-                            {
-                                var bill = new CreateTaxInvoiceEditBillItem
-                                {
-                                    ContractId = concusCustomer.contract.ContractId,
-                                    CustomCode = _customerCode.CustomerCode,
-                                    CustomerId = concusCustomer.customer.CustomerId,
-                                    ServicePointId = concusCustomer.service.PointId,
-                                    TaxInvoiceId = taxInvoiceId,
-                                    TaxCode = concusCustomer.customer.TaxCode,
-                                    FigureBook = concusCustomer.service.FigureBookId,
-                                    CustomName = concusCustomer.customer.Name,
-                                    Address = concusCustomer.customer.Address,
-                                    ServiceName = item.Description,
-                                    Unit = "",
-                                    Quantity = 0,
-                                    Price = item.Price.ToString("N0"),
-                                    Money = "0",
-                                    Total = "0",
-                                    TaxRatio = concusCustomer.customer.Ratio,
-                                    SubTotal = "0",
-                                    VAT = "0",
-                                    ServiceTypeId = item.ServiceTypeId,
-                                    ContractDetailId = item.ContractDetailId
-                                };
-                                billTax.Add(bill);
-                            });
-                        }
-                        else
+                        contractDetail.ForEach(item =>
                         {
                             var bill = new CreateTaxInvoiceEditBillItem
                             {
@@ -447,26 +417,53 @@ namespace ES.CCIS.Host.Controllers.HoaDon
                                 FigureBook = concusCustomer.service.FigureBookId,
                                 CustomName = concusCustomer.customer.Name,
                                 Address = concusCustomer.customer.Address,
-                                ServiceName = "",
+                                ServiceName = item.Description,
                                 Unit = "",
                                 Quantity = 0,
-                                Price = "0",
+                                Price = item.Price.ToString("N0"),
                                 Money = "0",
                                 Total = "0",
                                 TaxRatio = concusCustomer.customer.Ratio,
                                 SubTotal = "0",
                                 VAT = "0",
-                                ServiceTypeId = 0,
-                                ContractDetailId = null
+                                ServiceTypeId = item.ServiceTypeId,
+                                ContractDetailId = item.ContractDetailId
                             };
                             billTax.Add(bill);
-                        }
-
-                        respone.Status = 1;
-                        respone.Message = "OK";
-                        respone.Data = billTax;
-                        return createResponse();
+                        });
                     }
+                    else
+                    {
+                        var bill = new CreateTaxInvoiceEditBillItem
+                        {
+                            ContractId = concusCustomer.contract.ContractId,
+                            CustomCode = _customerCode.CustomerCode,
+                            CustomerId = concusCustomer.customer.CustomerId,
+                            ServicePointId = concusCustomer.service.PointId,
+                            TaxInvoiceId = taxInvoiceId,
+                            TaxCode = concusCustomer.customer.TaxCode,
+                            FigureBook = concusCustomer.service.FigureBookId,
+                            CustomName = concusCustomer.customer.Name,
+                            Address = concusCustomer.customer.Address,
+                            ServiceName = "",
+                            Unit = "",
+                            Quantity = 0,
+                            Price = "0",
+                            Money = "0",
+                            Total = "0",
+                            TaxRatio = concusCustomer.customer.Ratio,
+                            SubTotal = "0",
+                            VAT = "0",
+                            ServiceTypeId = 0,
+                            ContractDetailId = null
+                        };
+                        billTax.Add(bill);
+                    }
+
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = billTax;
+                    return createResponse();
                 }
                 else
                 {
