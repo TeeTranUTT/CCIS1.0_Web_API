@@ -39,6 +39,8 @@ namespace ES.CCIS.Host.Controllers.HoaDon
         private readonly Business_Bill_AdjustmentReport business_Bill_AdjustmentReport = new Business_Bill_AdjustmentReport();
         private readonly Business_Bill_AdjustmentDetailLamThinh billAdjustment = new Business_Bill_AdjustmentDetailLamThinh();
         private readonly Bussiness_TaxInVoice_Bill business_Bill_TaxInvoice = new Bussiness_TaxInVoice_Bill();
+        private readonly Bussiness_QLVHBill_Item bussiness_QLVHBill_Item = new Bussiness_QLVHBill_Item();
+        private readonly Business_Category_FigureBook businessFigure = new Business_Category_FigureBook();
         private readonly CCISContext _dbContext;
 
         public BillController()
@@ -1960,8 +1962,189 @@ namespace ES.CCIS.Host.Controllers.HoaDon
             }
         }
         #endregion
+       
+        [HttpGet]
+        [Route("EditQuantityService")]
+        public HttpResponseMessage EditQuantityService(DateTime? Month, [DefaultValue(0)] int FigureBookId, [DefaultValue("")] string SearchCustomerCode)
+        {
+            try
+            {
+                var model = new UpdateBillTaxInVoiceDTO();
+                var businessFigure = new Business_Category_FigureBook();
+                var lstData = new List<Bill_TaxInvoice_Item>();
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-        //Todo: chưa viết api EditQuantityService, EditElectricityEstimate vì có model SelectListItem trong mvc
+                var lstFigureBook = businessFigure.GetAll(departmentId).Select(item => new SlsSearchFigureBook
+                {
+                    Text = item.BookCode + " - " + item.BookName,
+                    Value = item.FigureBookId.ToString()
+                }).ToList();
+
+                lstFigureBook.Insert(0, new SlsSearchFigureBook());
+
+                if (FigureBookId > 0 && SearchCustomerCode != "")
+                {
+                    lstData = business_Bill_TaxInvoice.GetBillTaxInvoiceItem(Month, FigureBookId, SearchCustomerCode, departmentId);
+                }
+                else
+                {
+                    lstData = business_Bill_TaxInvoice.GetBillTaxInvoiceItemWithoutCustomCode(Month, FigureBookId, SearchCustomerCode, departmentId);
+                }
+                model.SlsSearchFigureBookId = lstFigureBook;
+                model.LstData = lstData;
+                model.Month = Month;
+                model.SearchCustomerCode = SearchCustomerCode;
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpGet]
+        [Route("EditElectricityEstimate")]
+        public HttpResponseMessage EditElectricityEstimate([DefaultValue(0)] int FigureBookId, [DefaultValue("")] string SearchPointCode)
+        {
+            try
+            {
+                var model = new UpdateElectricityEstimate();
+                var lstData = new List<Bill_ElectricityEstimateModel>();
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                var lstFigureBook = businessFigure.GetAll(departmentId).Select(item => new SlsSearchFigureBook
+                {
+                    Text = item.BookCode + " - " + item.BookName,
+                    Value = item.FigureBookId.ToString()
+                }).ToList();
+
+                lstFigureBook.Insert(0, new SlsSearchFigureBook());
+                if (FigureBookId != 0)
+                {
+                    //lấy thông tin khách hàng trong sổ
+                    lstData =
+                    (from c in _dbContext.Concus_ServicePoint
+                     where c.FigureBookId == FigureBookId && //|| FigureBookId == 0) &&
+                            (c.PointCode.Contains(SearchPointCode) || string.IsNullOrEmpty(SearchPointCode))
+                     select new Bill_ElectricityEstimateModel
+                     {
+                         DepartmentId = c.DepartmentId,
+                         PointId = c.PointId,
+                         PointCode = c.PointCode,
+                         CustomerName = c.Concus_Contract.Concus_Customer.Name,
+                         ElectricityEstimateId = 0,
+                         ElectricityIndex = null
+                     }
+                     ).ToList();
+
+                    if (lstData?.Any() == true)
+                    {
+                        var vListPoint = lstData.Select(i => i.PointId).ToList();
+                        var vListEstimate = _dbContext.Bill_ElectricityEstimate.Where(i => vListPoint.Contains(i.PointId)).ToList();
+                        if (vListEstimate != null && vListEstimate.Count > 0)
+                        {
+                            foreach (var vM in lstData)
+                            {
+                                var vE = vListEstimate.Where(i => i.PointId == vM.PointId).ToList();
+                                if (vE != null && vE.Count > 0)
+                                {
+                                    vM.ElectricityEstimateId = vE.FirstOrDefault().ElectricityEstimateId;
+                                    vM.ElectricityIndex = vE.FirstOrDefault().ElectricityIndex;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lstData = new List<Bill_ElectricityEstimateModel>();
+                    }
+                }
+
+                model.SlsSearchFigureBookId = lstFigureBook;
+                model.LstData = lstData;
+                model.SearchPointCode = SearchPointCode;
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditElectricityEstimate")]
+        public HttpResponseMessage EditElectricityEstimate(UpdateElectricityEstimate EstimateDTO)
+        {
+            try
+            {
+                var myArrayEstimate = EstimateDTO.LstData;
+
+                if ((myArrayEstimate != null) && (myArrayEstimate.Count > 0))
+                {
+                    for (int i = 0; i < myArrayEstimate.Count; i++)
+                    {
+                        decimal vID = myArrayEstimate[i].ElectricityEstimateId;
+                        //trường hợp thêm mới
+                        if (vID == 0 && myArrayEstimate[i].ElectricityIndex != null)
+                        {
+                            var vIns = new Bill_ElectricityEstimate();
+                            vIns.DepartmentId = myArrayEstimate[i].DepartmentId;
+                            vIns.PointId = myArrayEstimate[i].PointId;
+                            vIns.ElectricityIndex = myArrayEstimate[i].ElectricityIndex.Value;
+                            vIns.CreateUser = 0;
+                            vIns.CreateDate = DateTime.Now;
+                            _dbContext.Bill_ElectricityEstimate.Add(vIns);
+                            continue;
+                        }
+                        //trường hợp xóa
+                        if (vID > 0 && myArrayEstimate[i].ElectricityIndex == null)
+                        {
+                            var vDel = _dbContext.Bill_ElectricityEstimate.Where(e => e.ElectricityEstimateId == vID);
+                            _dbContext.Bill_ElectricityEstimate.RemoveRange(vDel);
+                            continue;
+                        }
+                        //trường hợp cập nhật
+                        if (vID > 0 && myArrayEstimate[i].ElectricityIndex != null)
+                        {
+                            var vUp = _dbContext.Bill_ElectricityEstimate.Where(e => e.ElectricityEstimateId == vID).FirstOrDefault();
+                            vUp.ElectricityIndex = myArrayEstimate[i].ElectricityIndex.Value;
+                            continue;
+                        }
+                    }
+                    _dbContext.SaveChanges();
+
+                    respone.Status = 1;
+                    respone.Message = "OK";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException($"Không có dữ liệu cập nhật.");
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
 
         [HttpGet]
         [Route("UpdateTaxInVoiceBill")]
@@ -2307,8 +2490,156 @@ namespace ES.CCIS.Host.Controllers.HoaDon
                 return createResponse();
             }
         }
+        
+        [HttpGet]
+        [Route("EditQLVHBill")]
+        public HttpResponseMessage EditQLVHBill(DateTime? Month, [DefaultValue(0)] int Term, [DefaultValue(0)] int FigureBookId, [DefaultValue("")] string SearchCustomerCode)
+        {
+            try
+            {
+                var model = new QLVHBillDTO();
+                var lstData = new List<QLVHBill_Item>();
+                var bill_Item = new QLVHBill_Item();
 
-        //Todo: Chưa viết api EditQLVHBill và EditCDCBill
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+                var lstFigureBook = businessFigure.GetAll(departmentId).Select(item => new SlsSearchFigureBook
+                {
+                    Text = item.BookCode + " - " + item.BookName,
+                    Value = item.FigureBookId.ToString()
+                }).ToList();
+
+                lstFigureBook.Insert(0, new SlsSearchFigureBook());
+                model.SlsSearchFigureBookId = lstFigureBook;
+                model.Month = Month;
+                model.SearchCustomerCode = SearchCustomerCode;
+                if (FigureBookId > 0 && SearchCustomerCode != "")
+                {
+                    bill_Item = bussiness_QLVHBill_Item.GetQLVHBillItem(Month, Term, FigureBookId, SearchCustomerCode, departmentId);
+                    if (bill_Item != null)
+                    {
+                        lstData = bussiness_QLVHBill_Item.GetListQLVHBillItem(Month, Term, FigureBookId, SearchCustomerCode, departmentId, bill_Item.BillId);
+                        model.Bill_Item = bill_Item;
+                        model.LstData = lstData;
+                    }
+                }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditQLVHBill")]
+        public HttpResponseMessage EditQLVHBill(QLVHBillDTO model)
+        {
+            try
+            {
+                var strErr = "";
+                bool kq = bussiness_QLVHBill_Item.UpdateQLVHBill(model.LstData, ref strErr);
+                if (kq)
+                {
+                    respone.Status = 1;
+                    respone.Message = "Cập nhật dữ liệu thành công.";
+                    respone.Data = null;
+                    return createResponse();
+                }
+                else
+                {
+                    throw new ArgumentException($"{strErr}");                    
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpGet]
+        [Route("EditCDCBill")]
+        public HttpResponseMessage EditCDCBill(DateTime? Month, [DefaultValue(0)] int Term, [DefaultValue(0)] int FigureBookId, [DefaultValue("")] string SearchCustomerCode)
+        {
+            try
+            {
+                var model = new QLVHBillDTO();
+                var lstData = new List<QLVHBill_Item>();
+                var bill_Item = new QLVHBill_Item();
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                var lstFigureBook = businessFigure.GetAll(departmentId).Select(item => new SlsSearchFigureBook
+                {
+                    Text = item.BookCode + " - " + item.BookName,
+                    Value = item.FigureBookId.ToString()
+                }).ToList();
+
+                lstFigureBook.Insert(0, new SlsSearchFigureBook());
+                model.SlsSearchFigureBookId = lstFigureBook;
+                model.Month = Month;
+                model.SearchCustomerCode = SearchCustomerCode;
+                if (FigureBookId > 0 && SearchCustomerCode != "")
+                {
+                    bill_Item = bussiness_QLVHBill_Item.GetQLVHBillItem(Month, Term, FigureBookId, SearchCustomerCode, departmentId);
+                    if (bill_Item != null)
+                    {
+                        lstData = bussiness_QLVHBill_Item.GetListCDCBillItem(Month, Term, FigureBookId, SearchCustomerCode, departmentId, bill_Item.BillId);
+                        model.Bill_Item = bill_Item;
+                        model.LstData = lstData;
+                    }
+                }
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = model;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditCDCBill")]
+        public HttpResponseMessage EditCDCBill(QLVHBillDTO model)
+        {
+            try
+            {
+                var strErr = "";
+                bool kq = bussiness_QLVHBill_Item.UpdateCDCBill(model.LstData, ref strErr);
+                if (kq)
+                {
+                    respone.Status = 1;
+                    respone.Message = "Cập nhật dữ liệu thành công.";
+                    respone.Data = null;
+                    return createResponse();                   
+                }
+                else
+                {
+                    throw new ArgumentException($"{strErr}");
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
 
         [HttpGet]
         [Route("GetData_Service")]
@@ -2344,6 +2675,6 @@ namespace ES.CCIS.Host.Controllers.HoaDon
                 return createResponse();
             }
         }
-        #endregion
+        #endregion        
     }
 }

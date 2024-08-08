@@ -506,7 +506,6 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 respone.Status = 1;
                 respone.Message = "Lấy thông tin danh mục thành công.";
                 respone.Data = data;
-
                 return createResponse();
             }
             catch (Exception ex)
@@ -727,7 +726,7 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             }
         }
 
-        //TODO: còn api thêm nhanh khách hàng hợp đồng điểm đo áp giá chưa viết
+        //TODO: còn api thêm nhanh khách hàng hợp đồng điểm đo áp giá chưa viết vì chưa biết input ntn
         #endregion
 
         #region Sinh mã khách hàng tự động

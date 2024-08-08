@@ -4,7 +4,6 @@ using CCIS_BusinessLogic.CustomBusiness.BillEdit_TaxInvoice;
 using ES.CCIS.Host.Helpers;
 using PagedList;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Net.Http;
@@ -13,6 +12,9 @@ using System.Web.Http;
 using System.IO;
 using System.Xml;
 using System.Text;
+using System.Web.Hosting;
+using System.Net;
+using ES.CCIS.Host.Models.EnumMethods;
 
 namespace ES.CCIS.Host.Controllers.HoaDon
 {
@@ -43,7 +45,7 @@ namespace ES.CCIS.Host.Controllers.HoaDon
                              join b_eLec in _dbContext.Bill_ElectricityBill on b_eTro.BillId equals b_eLec.BillId into table2
                              from tbl2 in table2.DefaultIfEmpty()
                              join b_adjust in _dbContext.Bill_ElectricityBillAdjustment on b_eTro.BillId equals b_adjust.BillAdjustmentId into table3
-                             from tbl3 in table3.DefaultIfEmpty().Where(i => i.AdjustmentType == "LL").DefaultIfEmpty()
+                             from tbl3 in table3.DefaultIfEmpty().Where(i => i.AdjustmentType == EnumMethod.D_TinhChatHoaDon.LapLai).DefaultIfEmpty()
                              where listDepartment.Contains(b_eTro.DepartmentId)
                              && !(b_eTro.SignValue_XML == null)
                              select new BillConvertViewModel
@@ -148,68 +150,82 @@ namespace ES.CCIS.Host.Controllers.HoaDon
             }
         }
         //ToDo: Chưa xử lý được api Print_Bill 
-        //[HttpGet]
-        //[Route("Print_Bill")]
-        //public HttpResponseMessage Print_Bill(int BIllId, string BillType)
-        //{
-        //    try
-        //    {
-        //        using (var _dbContext = new CCISContext())
-        //        {
-        //            // Lấy file XML
-        //            string getFileXML = _dbContext.Bill_ElectronicBill
-        //                .Where(item => item.BillId == BIllId)
-        //                .Select(item => item.SignValue_XML)
-        //                .FirstOrDefault();
-        //            // Lấy file XSL
-        //            string getFileXSL = _dbContext.Category_ElectronicBillForm
-        //                .Where(item => item.BillType == BillType)
-        //                .Select(item => item.XML_BillConvert)
-        //                .FirstOrDefault();
+        [HttpGet]
+        [Route("Print_Bill")]
+        public HttpResponseMessage Print_Bill(int BIllId, string BillType)
+        {
+            try
+            {
+                using (var _dbContext = new CCISContext())
+                {
+                    // Lấy file XML
+                    string getFileXML = _dbContext.Bill_ElectronicBill
+                        .Where(item => item.BillId == BIllId)
+                        .Select(item => item.SignValue_XML)
+                        .FirstOrDefault();
+                    // Lấy file XSL
+                    string getFileXSL = _dbContext.Category_ElectronicBillForm
+                        .Where(item => item.BillType == BillType)
+                        .Select(item => item.XML_BillConvert)
+                        .FirstOrDefault();
 
-        //            string error = "";
-        //            byte[] pdfBuffer = null;
-        //            var tempPath = Server.MapPath("~/UploadFoldel");
-        //            if (!string.IsNullOrEmpty(getFileXML) && !string.IsNullOrEmpty(getFileXSL))
-        //            {
-        //                Business_ConvertBill _bussConvertBill = new Business_ConvertBill();
-        //                //Convert XSL to byte
-        //                byte[] byteXSL = Encoding.UTF8.GetBytes(getFileXSL);
-        //                //Convert XML to byte
-        //                byte[] byteXML = Encoding.UTF8.GetBytes(getFileXML);
+                    string error = "";
+                    byte[] pdfBuffer = null;
+                    var tempPath = HostingEnvironment.MapPath("~/UploadFoldel");
+                    if (!string.IsNullOrEmpty(getFileXML) && !string.IsNullOrEmpty(getFileXSL))
+                    {
+                        Business_ConvertBill _bussConvertBill = new Business_ConvertBill();
+                        //Convert XSL to byte
+                        byte[] byteXSL = Encoding.UTF8.GetBytes(getFileXSL);
+                        //Convert XML to byte
+                        byte[] byteXML = Encoding.UTF8.GetBytes(getFileXML);
 
-        //                // format XML
-        //                //byte[] buffer = (byte[])ds.Tables[0].Rows[0]["HOA_DON_XML"];
-        //                MemoryStream m = new MemoryStream();
-        //                m.Write(byteXML, 0, byteXML.Length);
-        //                m.Position = 0;
-        //                XmlDocument hdn = new XmlDocument();
-        //                hdn.Load(m);
-        //                byteXML = m.ToArray();
-        //                m.Close();
-        //                string billContentHtml = _bussConvertBill.TransXSLToHTML00(byteXSL, byteXML, "", ref error);
+                        // format XML
+                        //byte[] buffer = (byte[])ds.Tables[0].Rows[0]["HOA_DON_XML"];
+                        MemoryStream m = new MemoryStream();
+                        m.Write(byteXML, 0, byteXML.Length);
+                        m.Position = 0;
+                        XmlDocument hdn = new XmlDocument();
+                        hdn.Load(m);
+                        byteXML = m.ToArray();
+                        m.Close();
+                        string billContentHtml = _bussConvertBill.TransXSLToHTML00(byteXSL, byteXML, "", ref error);
 
-        //                if (!string.IsNullOrEmpty(billContentHtml) && error == "")
-        //                {
+                        if (!string.IsNullOrEmpty(billContentHtml) && error == "")
+                        {
 
-        //                    pdfBuffer = _bussConvertBill.ConvertHTML_PDF(billContentHtml, BIllId, tempPath);
-        //                }
-        //            }
-        //            MemoryStream pdfStream = new MemoryStream();
-        //            pdfStream.Write(pdfBuffer, 0, pdfBuffer.Length);
-        //            pdfStream.Position = 0;
-        //            return File(pdfStream, "application/pdf");                    
+                            pdfBuffer = _bussConvertBill.ConvertHTML_PDF(billContentHtml, BIllId, tempPath);
+                        }
+                    }
+                    MemoryStream pdfStream = new MemoryStream();
+                    pdfStream.Write(pdfBuffer, 0, pdfBuffer.Length);
+                    pdfStream.Position = 0;
 
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        respone.Status = 0;
-        //        respone.Message = $"Lỗi: {ex.Message.ToString()}";
-        //        respone.Data = null;
-        //        return createResponse();
-        //    }
-        //}
+                    // Create the HTTP response
+                    var response = new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StreamContent(pdfStream)
+                    };
+
+                    // Set the content headers
+                    response.Content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment")
+                    {
+                        FileName = "HoaDon"
+                    };
+                    response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+
+                    return response;
+
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
 
         [HttpPost]
         [Route("UpdatePrinter")]

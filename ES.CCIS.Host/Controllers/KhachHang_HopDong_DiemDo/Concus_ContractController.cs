@@ -15,6 +15,8 @@ using static CCIS_BusinessLogic.DefaultBusinessValue;
 using Newtonsoft.Json;
 using System.Web;
 using CCIS_DataAccess.ViewModels;
+using System.IO;
+using System.Web.Hosting;
 
 namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
 {
@@ -388,11 +390,10 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
                 return createResponse();
             }
         }
-
-        //Todo: còn phần đính kèm file chưa xử lý được
+        
         [HttpPost]
         [Route("ThemMoi")]
-        public HttpResponseMessage AddConcus_Contract(Concus_ContractModel model)
+        public HttpResponseMessage AddConcus_Contract(Concus_ContractModel model, List<HttpPostedFileBase> files)
         {
             try
             {
@@ -420,46 +421,39 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
 
                     int contractId = businessConcusContract.AddConcus_Contract(model);
 
-                    //if (HttpContext.Current.Request.Files.Count != 0)
-                    //{
-                    //    using (var _dbContext = new CCISContext())
-                    //    {
-                    //        // Lấy file đầu tiên từ request
-                    //        var files = HttpContext.Current.Request.Files[0];
+                    if (files != null)
+                    {
+                        //Đường dẫn lưu vào db
+                        foreach (var item in files)
+                        {
+                            string pathFolder = "/UploadFoldel/Contract"; // Your code goes here
+                            bool exists = Directory.Exists(HostingEnvironment.MapPath(pathFolder));
+                            if (!exists)
+                                Directory.CreateDirectory(HostingEnvironment.MapPath(pathFolder));
 
-                    //        //Đường dẫn lưu vào _dbContext
-                    //        foreach (var item in files)
-                    //        {
-                    //            string pathFolder = "/UploadFoldel/Contract"; // Your code goes here
-                    //            bool exists = Directory.Exists(Server.MapPath(pathFolder));
-                    //            if (!exists)
-                    //                Directory.CreateDirectory(Server.MapPath(pathFolder));
+                            var extension = Path.GetExtension(item.FileName);
+                            Guid fileName = Guid.NewGuid();
+                            var physicalPath = "/UploadFoldel/Contract/" + fileName + extension;
+                            var savePath = Path.Combine(HostingEnvironment.MapPath("~/UploadFoldel/Contract/"), fileName + extension);
+                            item.SaveAs(savePath);
 
-                    //            var extension = Path.GetExtension(item.FileName);
-                    //            Guid fileName = Guid.NewGuid();
-                    //            var physicalPath = "/UploadFoldel/Contract/" + fileName + extension;
-                    //            var savePath = Path.Combine(Server.MapPath("~/UploadFoldel/Contract/"), fileName + extension);
-                    //            item.SaveAs(savePath);
-
-                    //            Concus_ContractFile target = new Concus_ContractFile();
-                    //            target.FileExtension = extension;
-                    //            target.ContractId = contractId;
-                    //            target.FileName = item.FileName;
-                    //            target.FileUrl = physicalPath;
-                    //            target.CreateDate = DateTime.Now;
-                    //            target.CreateUser = userId;
-                    //            _dbContext.Concus_ContractFile.Add(target);
-                    //            _dbContext.SaveChanges();
-                    //        }
-                    //    }
-                    //}
+                            Concus_ContractFile target = new Concus_ContractFile();
+                            target.FileExtension = extension;
+                            target.ContractId = contractId;
+                            target.FileName = item.FileName;
+                            target.FileUrl = physicalPath;
+                            target.CreateDate = DateTime.Now;
+                            target.CreateUser = userId;
+                            _dbContext.Concus_ContractFile.Add(target);
+                            _dbContext.SaveChanges();
+                        }
+                    }
 
                     respone.Status = 1;
                     respone.Message = "Thêm mới hợp đồng thành công.";
                     respone.Data = contractId;
                     return createResponse();
                 }
-
             }
             catch (Exception ex)
             {
@@ -1033,7 +1027,114 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         #endregion
 
         #region Sửa hợp đồng
-        //Todo: chưa viết 
+        //Todo: DownloadFile chưa viết vì liên quan đến file
+        [HttpPost]
+        [Route("DeleteFile")]
+        public HttpResponseMessage DeleteFile(int fileId)
+        {
+            try
+            {
+                var a = Convert.ToInt32(fileId);
+                var fileurl = _dbContext.Concus_ContractFile.Where(item => item.FileId == a).Select(item => item.FileUrl).FirstOrDefault();
+                string fullPath = HostingEnvironment.MapPath("~" + fileurl);
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                }
+                var b = _dbContext.Concus_ContractFile.Where(item => item.FileId == a).FirstOrDefault();
+                _dbContext.Concus_ContractFile.Remove(b);
+                _dbContext.SaveChanges();
+
+                respone.Status = 1;
+                respone.Message = "Xóa file thành công.";
+                respone.Data = null;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        [HttpPost]
+        [Route("EditContract")]
+        public HttpResponseMessage EditContract(List<HttpPostedFileBase> files, Concus_ContractModel model)
+        {
+            try
+            {
+                var userId = TokenHelper.GetUserIdFromToken();
+
+                if (businessConcusContract.CheckExistContractCode_Edit(model.ContractCode, model.ContractId))
+                {
+                    if (businessConcusContract.EditConcus_Contract(model))
+                    {
+                        var concus_svPoint = _dbContext.Concus_ServicePoint.Where(item => item.ContractId == model.ContractId).FirstOrDefault();
+                        if (concus_svPoint != null)
+                        {
+                            concus_svPoint.ActiveDate = model.ActiveDate;
+                            _dbContext.SaveChanges();
+                            var concus_ImposedPrice = _dbContext.Concus_ImposedPrice.Where(item => item.PointId == concus_svPoint.PointId).FirstOrDefault();
+                            if (concus_ImposedPrice != null)
+                            {
+                                concus_ImposedPrice.ActiveDate = model.ActiveDate;
+                                _dbContext.SaveChanges();
+                            }
+                        }
+                        if (files != null)
+                        {
+
+                            //Đường dẫn lưu vào db
+                            foreach (var item in files)
+                            {
+                                var extension = Path.GetExtension(item.FileName);
+                                Guid fileName = Guid.NewGuid();
+                                string pathFolder = "/UploadFoldel/Contract"; // Your code goes here
+                                bool exists = Directory.Exists(HostingEnvironment.MapPath(pathFolder));
+                                if (!exists)
+                                    Directory.CreateDirectory(HostingEnvironment.MapPath(pathFolder));
+
+                                var physicalPath = "/UploadFoldel/Contract/" + fileName + extension;
+                                var savePath = Path.Combine(HostingEnvironment.MapPath("~/UploadFoldel/Contract/"), fileName + extension);
+                                item.SaveAs(savePath);
+
+                                Concus_ContractFile target = new Concus_ContractFile();
+                                target.FileExtension = extension;
+                                target.ContractId = model.ContractId;
+                                target.FileName = item.FileName;
+                                target.FileUrl = physicalPath;
+                                target.CreateDate = DateTime.Now;
+                                target.CreateUser = userId;
+                                _dbContext.Concus_ContractFile.Add(target);
+                                _dbContext.SaveChanges();
+                            }
+                        }
+
+                        respone.Status = 1;
+                        respone.Message = "Chỉnh sửa hợp đồng thành công.";
+                        respone.Data = null;
+                        return createResponse();
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Chỉnh sửa hợp đồng không thành công.");
+                    }
+                }
+                else
+                {
+                    throw new ArgumentException("Chỉnh sửa hợp đồng không thành công, mã hợp đồng đã tồn tại.");
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"{ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
         #endregion
 
         #region Quản lý dịch vụ giá trị gia tăng

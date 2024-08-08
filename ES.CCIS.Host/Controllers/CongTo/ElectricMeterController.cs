@@ -1639,7 +1639,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
         /// </summary>
         /// <param name="model">dữ liệu đẩy lên </param>
         /// <returns></returns>
-        /// Todo: api này chưa viết chưa hiểu ntn code cũ đang bị lặp lại phần CheckBeforeInsert
+        /// Todo: api này đang viết dở chưa hiểu ntn code cũ đang bị lặp lại phần CheckBeforeInsert
         [HttpPost]
         [Route("InsertEquipmentMT_ElectricityMeter")]
         public HttpResponseMessage InsertEquipmentMT_ElectricityMeter(InsertEquipmentMT_ElectricityMeterDto model)
@@ -2507,7 +2507,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
 
         [HttpPost]
         [Route("EditElectricmeter")]
-        public HttpResponseMessage EditElectricmeter(EquipmentMT_ElectricityMeterViewModel model)
+        public HttpResponseMessage EditElectricmeter(EquipmentMT_ElectricityMeterViewModel model, int possesiveId)
         {
             using (var _dbContext = new CCISContext())
             {
@@ -2521,7 +2521,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                             throw new ArgumentException("Mã công tơ đã tồn tại.");
                         }
                         // lấy thông tin mới của  công tơ.
-                        //model.ElectricityMeter.Possesive = Int32.Parse(Request["idtxtPossesive"]); // giá trị mới cho sở hữu//ToDo: cần ktra lại
+                        model.ElectricityMeter.Possesive = possesiveId; // giá trị mới cho sở hữu
                         var typecode = _dbContext.Category_ElectricityMeterType.Where(item => item.ElectricityMeterTypeId == model.ElectricityMeter.ElectricityMeterTypeId).FirstOrDefault(); // mã chủng loại
                         model.ElectricityMeter.ElectricityMeterCode = typecode.TypeCode + model.ElectricityMeter.ManufactureYear + model.ElectricityMeter.ElectricityMeterNumber;
                         model.ElectricityMeter.TestingDate = model.Testing.TestingDate;

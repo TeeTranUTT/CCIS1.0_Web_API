@@ -364,7 +364,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
         }
         [HttpPost]
         [Route("EditCurrentTransformer")]
-        public HttpResponseMessage EditCurrentTransformer(EquipmentCT_Transformer_StockReport_Testing model)
+        public HttpResponseMessage EditCurrentTransformer(EquipmentCT_Transformer_StockReport_Testing model, int possesiveId)
         {
             try
             {
@@ -379,8 +379,7 @@ namespace ES.CCIS.Host.Controllers.CongTo
                     try
                     {
                         //thông tin Ti
-                        //Todo
-                        //model.CurrentTransformerModel.Possesive = Int32.Parse(Request["idtxtPossesive"]); // gán giá trị mới cho sở hữu
+                        model.CurrentTransformerModel.Possesive = possesiveId; // gán giá trị mới cho sở hữu
                         var typeCode =
                             _dbContext.Category_CurrentTransformerType.Where(
                                 item => item.CTTypeId == model.CurrentTransformerModel.CTTypeId)

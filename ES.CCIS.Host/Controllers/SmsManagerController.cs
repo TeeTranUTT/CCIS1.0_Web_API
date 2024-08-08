@@ -5,16 +5,20 @@ using CCIS_DataAccess.ViewModels;
 using ES.CCIS.Host.Helpers;
 using ES.CCIS.Host.Models;
 using ES.CCIS.Host.Models.EnumMethods;
+using OfficeOpenXml;
 using PagedList;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data.Entity;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Web;
 using System.Web.Configuration;
+using System.Web.Hosting;
 using System.Web.Http;
 using static CCIS_BusinessLogic.DefaultBusinessValue;
 
@@ -191,8 +195,82 @@ namespace ES.CCIS.Host.Controllers
         /// <param name="stationId"></param>
         /// <param name="templateId"></param>
         /// <returns></returns>
-        /// 
-         //Todo: chưa viết api SmsToBook_Alert vì có param HttpPostedFileBase
+        ///          
+         [HttpGet]
+         [Route("SmsToBook_Alert")]
+         public HttpResponseMessage SmsToBook_Alert([DefaultValue(0)] int stationId, System.Web.HttpPostedFileBase file)
+        {
+            try
+            {
+                List<Sms_AlertCutElecModel> lst = new List<Sms_AlertCutElecModel>();
+                var userInfo = TokenHelper.GetUserInfoFromRequest();
+
+                //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO tài khoản đang đăng nhập
+                var listDepartmentUser = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
+
+                // Lấy danh sách tất cả mẫu tin đã tạo trừ mẫu 1 và 2
+                var lstTemplate = _dbContext.Sms_Template.Where(item => item.SmsTypeId != 1 && item.SmsTypeId != 2 && listDepartmentUser.Contains(item.DepartmentId) && !item.IsDelete)
+                                .Select(item => new Sms_AlertCutElecModel
+                                {
+                                    SmsTemplateId = item.SmsTemplateId,
+                                    TemplateName = item.TemplateName,
+                                    SmsTypeId = item.SmsTypeId,
+                                    AppSend = item.AppSend
+                                }).ToList();
+
+                var listCus = getCusFromFile(file);
+
+                if (listCus?.Any() == true)
+                {
+                    lst = (from d in _dbContext.Concus_Customer
+                           where listDepartmentUser.Contains(d.DepartmentId) && listCus.Contains(d.CustomerCode) && d.Status == 1 // Concus_ServicePoint status = true là chỉ lấy những khách hàng chưa thanh lý
+                            && ((d.PhoneCustomerCare != null && d.PhoneCustomerCare != "") || (d.ZaloCustomerCare != null && d.ZaloCustomerCare != ""))
+                           select new Sms_AlertCutElecModel
+                           {
+                               CustomerName = d.Name,
+                               CustomerCode = d.CustomerCode,
+                               PhoneNumber = d.PhoneCustomerCare,
+                               CustomerId = d.CustomerId,
+                               ZaloNumber = d.ZaloCustomerCare
+                           }).ToList();
+                }
+                else if (stationId > 0)
+                {
+                    lst = (from a in _dbContext.Concus_ServicePoint
+                           join c in _dbContext.Concus_Contract on a.ContractId equals c.ContractId
+                           join d in _dbContext.Concus_Customer on c.CustomerId equals d.CustomerId
+                           where a.StationId == stationId && a.Status == true // Concus_ServicePoint status = true là chỉ lấy những khách hàng chưa thanh lý
+                           && listDepartmentUser.Contains(d.DepartmentId)
+                           && ((d.PhoneCustomerCare != null && d.PhoneCustomerCare != "") || (d.ZaloCustomerCare != null && d.ZaloCustomerCare != ""))
+                           select new Sms_AlertCutElecModel
+                           {
+                               CustomerName = d.Name,
+                               CustomerCode = d.CustomerCode,
+                               PhoneNumber = d.PhoneCustomerCare,
+                               FigureBookId = a.FigureBookId,
+                               CustomerId = d.CustomerId,
+                               ZaloNumber = d.ZaloCustomerCare
+                           }).ToList();
+                }
+
+                var response = new {
+                    LstTemplate= lstTemplate,
+                    LstSms_AlertCutElec = lst
+                };
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
 
         //Các hàm thực hiện gửi
         [HttpPost]
@@ -221,7 +299,7 @@ namespace ES.CCIS.Host.Controllers
                     track.SmsTypeId == smsTemplate.SmsTypeId
                     && track.Status == 1
                     && track.StationId == stationId
-                    //&& _dbContextFunctions.TruncateTime(track.CreateDate) == today //Todo cần xem lại không biết tại sao lại lỗi trong khi bảng Sms_Track_Customer đã kế thừa EntityBase
+                    && DbFunctions.TruncateTime(track.CreateDate) == today
                     )
                     .Select(track => track.CustomerId).ToList();
                 }
@@ -1165,26 +1243,7 @@ namespace ES.CCIS.Host.Controllers
             }
         }
 
-        //[HttpGet] ToDo: Còn vướng chỗ file excel
-        //[Route("")]
-        //public HttpResponseMessage SmsViewStatus([DefaultValue(1)] int page,
-        //                                    [DefaultValue("")] string txtTimKiem, [DefaultValue(-1)] int smsTemplateId,
-        //                                    [DefaultValue("0")] string statusService, [DefaultValue("All")] string LoaiTin,
-        //                                    DateTime? dateFrom, DateTime? dateTo, [DefaultValue(false)] bool isExportExcel)
-        //{
-        //    try
-        //    {
-
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        respone.Status = 0;
-        //        respone.Message = $"Lỗi: {ex.Message.ToString()}";
-        //        respone.Data = null;
-        //        return createResponse();
-        //    }
-        // }
-
+       //ToDo: SmsViewStatus Còn vướng chỗ file excel        
 
         [HttpGet]
         [Route("GetSMSDetailContent")]
@@ -1738,8 +1797,232 @@ namespace ES.CCIS.Host.Controllers
                 }
             }
         }
+        
+        [HttpGet]
+        [Route("SmsToCustomer_WithFileAttack")]
+        public HttpResponseMessage SmsToCustomer_WithFileAttack([DefaultValue(1)] int pageNumber, [DefaultValue(0)] int departmentId, [DefaultValue(0)] int stationId, HttpPostedFileBase file)
+        {
+            try
+            {
+                bool init = true;
+                if (departmentId != 0)
+                {
+                    init = false;
+                }
+                if (departmentId == 0)
+                    departmentId = TokenHelper.GetDepartmentIdFromToken();
 
-        //Todo: chưa viết api SmsToCustomer_WithFileAttack, SmsToCustomer_WithFileAttackSend 
+                //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO departmentId
+                var listDepartmentUserAll = DepartmentHelper.GetChildDepIds(departmentId);
+
+                var listCus = getCusFromFile(file);
+
+                var query = (from a in _dbContext.Concus_Customer
+                                                                   join cc in _dbContext.Concus_Contract
+                                                                   on a.CustomerId equals cc.CustomerId
+                                                                   join cs in _dbContext.Concus_ServicePoint
+                                                                   on cc.ContractId equals cs.ContractId
+                                                                   join ct in _dbContext.Category_Satiton
+                                                                   on cs.StationId equals ct.StationId
+
+                                                                   where
+                                                                   init == false
+                                                                   && (listCus.Count() == 0 || listCus.Contains(a.CustomerCode))
+                                                                   && listDepartmentUserAll.Contains(a.DepartmentId)
+                                                                   && (listCus.Count() != 0 || (stationId == 0 || cs.StationId == stationId))
+                                                                   && cs.Status
+                                                                   select new Liabilities_TrackDebtModel
+                                                                   {
+                                                                       AddressPoint = cs.Address,
+                                                                       StationCode = ct.StationCode,
+                                                                       FigureBookId = cs.FigureBookId,
+                                                                       CustomerId = a.CustomerId,
+                                                                       CustomerName = a.Name,
+                                                                       Address = a.Address,
+                                                                       CustomerCode = a.CustomerCode,
+                                                                       PhoneNumber = a.PhoneCustomerCare,
+                                                                       ZaloNumber = a.ZaloCustomerCare,
+                                                                   }).GroupBy(r => new
+                                                                   {
+                                                                       r.CustomerCode,
+                                                                       r.CustomerId,
+                                                                       r.CustomerName,
+                                                                       r.PhoneNumber,
+                                                                       r.ZaloNumber,
+                                                                       r.Address,
+                                                                       r.FigureBookId,
+                                                                       r.AddressPoint,
+                                                                       r.StationCode
+                                                                   })
+                                                           .Select(cr => new Liabilities_TrackDebtViewModel
+                                                           {
+                                                               CustomerId = cr.Key.CustomerId,
+                                                               Address = cr.Key.Address,
+                                                               CustomerCode = cr.Key.CustomerCode,
+                                                               PhoneNumber = cr.Key.PhoneNumber,
+                                                               ZaloNumber = cr.Key.ZaloNumber,
+                                                               CustomerName = cr.Key.CustomerName,
+                                                               FigureBookId = cr.Key.FigureBookId.Value,
+                                                               AddressPoint = cr.Key.AddressPoint,
+                                                               StationCode = cr.Key.StationCode
+                                                           });
+                var paged = query.ToPagedList(pageNumber, pageSize);
+
+                var response = new
+                {
+                    paged.PageNumber,
+                    paged.PageSize,
+                    paged.TotalItemCount,
+                    paged.PageCount,
+                    paged.HasNextPage,
+                    paged.HasPreviousPage,
+                    TrackDebts = paged.ToList()
+                };
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        private List<string> getCusFromFile(HttpPostedFileBase fileUpload)
+        {
+            List<string> listCus = new List<string>();
+            try
+            {
+                if (fileUpload != null && fileUpload.ContentLength > 0 && !string.IsNullOrEmpty(fileUpload.FileName))
+                {
+                    string fileName = fileUpload.FileName;
+                    string fileContentType = fileUpload.ContentType;
+                    byte[] fileBytes = new byte[fileUpload.ContentLength];
+                    var data = fileUpload.InputStream.Read(fileBytes, 0, Convert.ToInt32(fileUpload.ContentLength));
+                    using (var package = new ExcelPackage(fileUpload.InputStream))
+                    {
+                        var currentSheet = package.Workbook.Worksheets;
+                        var workSheet = currentSheet.First();
+                        var noOfRow = workSheet.Dimension.End.Row;
+                        for (int rowIterator = 2; rowIterator <= noOfRow; rowIterator++)
+                        {
+                            listCus.Add(workSheet.Cells[rowIterator, 1].Value.ToString());
+                        }
+                    }
+                }
+                return listCus;
+            }
+            catch (Exception ex)
+            {
+                listCus = new List<string>();
+                return listCus;
+            }
+        }
+
+        [HttpPost]
+        [Route("SmsToCustomer_WithFileAttackSend")]
+        public HttpResponseMessage SmsToCustomer_WithFileAttackSend(SmsToCustomer_WithFileAttackSendInput input)
+        {
+            try
+            {
+                string strKQ = "";
+                var RealPathFile = "";
+                var VisualPath = "";
+                if (input.Files != null)
+                {
+                    try
+                    {
+                        setUserId();
+                        var pathFolder = HostingEnvironment.MapPath("~/UploadFoldel/SmsFileAttack");
+                        if (!Directory.Exists(pathFolder))
+                        {
+                            Directory.CreateDirectory(pathFolder);
+                        }
+                        for (var index = 0; index < input.Files.Count(); index++)
+                        {
+                            var file = input.Files.ElementAt(index);
+                            if (file != null && file.ContentLength > 0)
+                            {
+                                var fileName = $"{Path.GetFileNameWithoutExtension(file.FileName)}_{Guid.NewGuid()}_{Path.GetExtension(file.FileName)}";
+                                VisualPath = Path.Combine("/UploadFoldel/SmsFileAttack", fileName);
+                                RealPathFile = Path.Combine(HostingEnvironment.MapPath("~/UploadFoldel/SmsFileAttack"), fileName);
+                                file.SaveAs(RealPathFile);
+                            }
+                            else
+                            {
+                                throw new ArgumentException("File không có dung lượng vui lòng kiểm tra lại.");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("SmsToCustomer_WithFileAttackSend", ex);
+                        throw new ArgumentException($"{ex.Message}");
+                    }                    
+                }
+                else
+                {
+                    throw new ArgumentException("Bạn chưa chọn file đính kèm");
+                }
+
+                List<Sms_Data_SendModel> listKH = new List<Sms_Data_SendModel>();
+                for (int i = 0; i < input.ListCustomerId.Length; i++)
+                {
+                    string lstItem = input.ListCustomerId[i].ToString();
+                    string[] split = lstItem.Split(',');
+                    int customerId = Convert.ToInt32(split[0]);
+                    string phoneNumber = split[1];
+                    string customerCode = split[2];
+                    int figureBookId = Convert.ToInt32(split[3]);
+
+                    Sms_Data_SendModel modelCustomer = new Sms_Data_SendModel();
+                    modelCustomer.makh = customerCode;
+                    modelCustomer.CustomerId = customerId;
+                    modelCustomer.PhoneNumber = phoneNumber;
+                    modelCustomer.FigureBookId = figureBookId;
+                    modelCustomer.thang = DateTime.Now.Month;
+                    modelCustomer.nam = DateTime.Now.Year;
+                    modelCustomer.TypeSend = TYPE_SEND_By_Customer;
+                    listKH.Add(modelCustomer);
+                }
+
+                #region chuẩn hóa để bổ sung thêm thông tin cho trường dữ liệu phức tạp
+                foreach (var hd in listKH)
+                {
+                    var vPoint = _dbContext.Concus_ServicePoint.Where(o => o.DepartmentId == input.DepartmentId
+                                 && o.Concus_Contract.CustomerId == hd.CustomerId
+                                 && o.Status
+                              ).FirstOrDefault();
+                    //cập nhật địa chỉ điểm đo
+                    hd.diachiddo = vPoint.Address;
+                }
+                #endregion
+                strKQ = businessSms.SendEmail_WithAttackFile(listKH, VisualPath, input.TemplateId, _dbContext);
+                if (strKQ != "OK")
+                {
+                    throw new ArgumentException($"Gửi tin nhắn có lỗi vui lòng kiểm tra trong lịch sử gửi tin nhắn: {strKQ}");                       
+                }
+                else
+                {
+                    respone.Status = 1;
+                    respone.Message = "Gửi thành công, vui lòng kiểm tra chi tiết tại lịch sử tin nhắn.";
+                    respone.Data = null;
+                    return createResponse();                    
+                }
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
         #region Class
         public class SmsToBook_PostInput
         {
@@ -1785,6 +2068,14 @@ namespace ES.CCIS.Host.Controllers
             public int StationId { get; set; }
             public int FigureBookId { get; set; }
             public string Search { get; set; }
+        }
+
+        public class SmsToCustomer_WithFileAttackSendInput
+        {
+            public string[] ListCustomerId { get; set; }
+            public int DepartmentId { get; set; }
+            public int TemplateId { get; set; }
+            public IEnumerable<HttpPostedFileBase> Files { get; set; }
         }
         #endregion
     }

@@ -9,9 +9,12 @@ using PagedList;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Web;
 using System.Web.Configuration;
+using System.Web.Hosting;
 using System.Web.Http;
 
 namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
@@ -176,8 +179,125 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
         }
         #endregion
 
-        #region Thêm mới hợp đồng
-        //Todo: api phần này chưa viết
+        #region Thêm mới hợp đồng        
+        [HttpPost]
+        [Route("AddContract")]
+        public HttpResponseMessage AddContract(AddContractInput input)
+        {
+            try
+            {
+                var userId = TokenHelper.GetUserIdFromToken();
+                var departmentId = TokenHelper.GetDepartmentIdFromToken();
+
+                if (CheckExistContractCode(input.Solar_Contract.ContractCode))
+                {
+                    throw new ArgumentException("Mã hợp đồng đã tồn tại.");                    
+                }
+                else if (input.Solar_Contract.ActiveDate.Ticks > input.Solar_Contract.EndDate.Ticks)
+                {
+                    throw new ArgumentException("Ngày bắt đầu không được lớn hơn ngày kết thúc.");                    
+                }
+                else
+                {
+                    input.Solar_Contract.DepartmentId = departmentId;
+                    input.Solar_Contract.CreateUser = userId;
+
+
+                    int contractId = AddSolar_Contract(input.Solar_Contract);
+
+                    if (input.Files != null)
+                    {
+                        //Đường dẫn lưu vào db
+                        foreach (var item in input.Files)
+                        {
+                            var extension = Path.GetExtension(item.FileName);
+                            Guid fileName = Guid.NewGuid();
+                            var physicalPath = "/UploadFoldel/Contract/" + fileName + extension;
+                            var savePath = Path.Combine(HostingEnvironment.MapPath("~/UploadFoldel/Contract/"), fileName + extension);
+                            item.SaveAs(savePath);
+
+                            Concus_ContractFile target = new Concus_ContractFile();
+                            target.FileExtension = extension;
+                            target.ContractId = contractId;
+                            target.FileName = item.FileName;
+                            target.FileUrl = physicalPath;
+                            target.CreateDate = DateTime.Now;
+                            target.CreateUser = userId;
+                            _dbContext.Concus_ContractFile.Add(target);
+                            _dbContext.SaveChanges();
+                        }
+                    }
+                }
+                respone.Status = 1;
+                respone.Message = "Thêm mới hợp đồng thành công.";
+                respone.Data = null;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        //Thêm mới hợp đồng
+        public int AddSolar_Contract(Object customer)
+        {
+            Type typeB = customer.GetType();
+            int departmentId = typeB.GetProperty("DepartmentId") != null ? Convert.ToInt32(typeB.GetProperty("DepartmentId").GetValue(customer, null)) : 0;
+            string contractCode = typeB.GetProperty("ContractCode") != null ? (string)typeB.GetProperty("ContractCode").GetValue(customer, null) : null;
+            string contractAdress = typeB.GetProperty("ContractAdress") != null ? (string)typeB.GetProperty("ContractAdress").GetValue(customer, null) : null;
+            string contractName = typeB.GetProperty("ContractName") != null ? (string)typeB.GetProperty("ContractName").GetValue(customer, null) : null;
+            DateTime signatureDate = typeB.GetProperty("SignatureDate") != null ? Convert.ToDateTime(typeB.GetProperty("SignatureDate").GetValue(customer, null)) : DateTime.Now;
+            DateTime activeDate = typeB.GetProperty("ActiveDate") != null ? Convert.ToDateTime(typeB.GetProperty("ActiveDate").GetValue(customer, null)) : DateTime.Now;
+            DateTime endDate = typeB.GetProperty("EndDate") != null ? Convert.ToDateTime(typeB.GetProperty("EndDate").GetValue(customer, null)) : DateTime.Now;
+            DateTime createDate = DateTime.Now;
+            int createUser = typeB.GetProperty("CreateUser") != null ? Convert.ToInt32(typeB.GetProperty("CreateUser").GetValue(customer, null)) : 0;
+            int customerId = typeB.GetProperty("CustomerId") != null ? Convert.ToInt32(typeB.GetProperty("CustomerId").GetValue(customer, null)) : 0;
+            string note = typeB.GetProperty("Note") != null ? (string)typeB.GetProperty("Note").GetValue(customer, null) : null;
+
+            using (var db = new CCISContext())
+            {
+                var target = new Solar_Contract();
+                target.DepartmentId = departmentId;
+                target.ContractCode = contractCode;
+                target.ContractAdress = contractAdress;
+                target.ContractName = contractName;
+
+                target.SignatureDate = signatureDate;
+                target.ActiveDate = activeDate;
+                target.EndDate = endDate;
+                target.CreateDate = createDate;
+                target.CreateUser = createUser;
+                target.CustomerId = null; // customerId;
+                target.Note = note;
+                target.Custom1 = typeB.GetProperty("Custom1") != null ? (string)typeB.GetProperty("Custom1").GetValue(customer, null) : null;
+                target.Custom2 = typeB.GetProperty("Custom2") != null ? (string)typeB.GetProperty("Custom2").GetValue(customer, null) : null;
+                target.Custom3 = typeB.GetProperty("Custom3") != null ? (string)typeB.GetProperty("Custom3").GetValue(customer, null) : null;
+                target.Custom4 = typeB.GetProperty("Custom4") != null ? (string)typeB.GetProperty("Custom4").GetValue(customer, null) : null;
+                target.Custom5 = typeB.GetProperty("Custom5") != null ? (string)typeB.GetProperty("Custom5").GetValue(customer, null) : null;
+                target.Custom6 = typeB.GetProperty("Custom6") != null ? (string)typeB.GetProperty("Custom6").GetValue(customer, null) : null;
+                target.Custom7 = typeB.GetProperty("Custom7") != null ? (string)typeB.GetProperty("Custom7").GetValue(customer, null) : null;
+                target.Custom8 = typeB.GetProperty("Custom8") != null ? (string)typeB.GetProperty("Custom8").GetValue(customer, null) : null;
+                target.Custom9 = typeB.GetProperty("Custom9") != null ? (string)typeB.GetProperty("Custom9").GetValue(customer, null) : null;
+
+                db.Solar_Contract.Add(target);
+                db.SaveChanges();
+                return target.ContractId;
+            }
+        }
+
+        //Kiểm tra tồn tại mã khi thêm mới
+        public bool CheckExistContractCode(string contractCode)
+        {
+            using (var db = new CCISContext())
+            {
+                var count = db.Solar_Contract.Where(item => item.ContractCode == contractCode.Trim()).Count();
+                return count > 0;
+            }
+        }
         #endregion
 
         #region Form áp giá
@@ -1062,7 +1182,56 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             }
         }
 
-        //Todo: chưa viết api ViewContract, DownloadContract, SaveFileContract, DeleteFileContract
+        //Todo: chưa viết api ViewContract, DownloadContract, SaveFileContract vì vướng phần HttpPostedFileBase, DeleteFileContract vì output gọi đến api SaveFileContract
+        [HttpPost]
+        [Route("SaveFileContract")]
+        public HttpResponseMessage SaveFileContract(SaveFileContractInput input)
+        {
+            try
+            {
+                var userId = TokenHelper.GetUserIdFromToken();
+
+                if (input.Files != null)
+                {
+                    foreach (var item in input.Files)
+                    {
+                        if (!Directory.Exists(HostingEnvironment.MapPath("~/UploadFoldel/Contract/")))
+                            {
+                                Directory.CreateDirectory(HostingEnvironment.MapPath("~/UploadFoldel/Contract/"));
+                            }
+
+                            var extension = Path.GetExtension(item.FileName);
+                            Guid fileName = Guid.NewGuid();
+                            var physicalPath = "/UploadFoldel/Contract/" + fileName + extension;
+                            var savePath = Path.Combine(HostingEnvironment.MapPath("~/UploadFoldel/Contract/"), fileName + extension);
+                            item.SaveAs(savePath);
+
+                            Concus_ContractFile target = new Concus_ContractFile();
+                            target.FileExtension = extension;
+                            target.ContractId = input.Concus_Contract.ContractId;
+                            target.FileName = item.FileName;
+                            target.FileUrl = physicalPath;
+                            target.CreateDate = DateTime.Now;
+                            target.CreateUser = userId;
+                            _dbContext.Concus_ContractFile.Add(target);
+                            _dbContext.SaveChanges();
+                    }
+                }
+
+                respone.Status = 1;
+                respone.Message = "Lưu File thành công.";
+                respone.Data = null;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }        
+
         #endregion
 
         #region Class
@@ -1084,6 +1253,18 @@ namespace ES.CCIS.Host.Controllers.KhachHang_HopDong_DiemDo
             public Customer_ContractModel ConCusConTract { get; set; }
             public string Gender { get; set; }
             public string OccupationsGroupName { get; set; }
+        }
+
+        public class AddContractInput
+        {
+            public Solar_ContractModel Solar_Contract { get; set; }
+            public List<HttpPostedFileBase> Files { get; set; }
+        }
+
+        public class SaveFileContractInput
+        {
+            public List<HttpPostedFileBase> Files { get; set; }
+            public Concus_ContractModel Concus_Contract { get; set; }
         }
         #endregion
     }

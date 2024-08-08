@@ -3,6 +3,7 @@ using CCIS_BusinessLogic.DTO.Sms;
 using CCIS_DataAccess;
 using ES.CCIS.Host.Helpers;
 using ES.CCIS.Host.Models.EnumMethods;
+using OfficeOpenXml;
 using PagedList;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,7 @@ using System.ComponentModel;
 using System.Data.Entity;
 using System.Linq;
 using System.Net.Http;
+using System.Web;
 using System.Web.Configuration;
 using System.Web.Http;
 
@@ -321,8 +323,107 @@ namespace ES.CCIS.Host.Controllers
                 return createResponse();
             }
         }
+        
+        [HttpGet]
+        [Route("ZNSToBook_Alert")]
+        public HttpResponseMessage ZNSToBook_Alert([DefaultValue(0)] int stationId, System.Web.HttpPostedFileBase file)
+        {
+            try
+            {
+                List<Sms_AlertCutElecModel> lst = new List<Sms_AlertCutElecModel>();
+                List<string> listCus = new List<string>();
 
-        //Todo: Chưa viết api ZNSToBook_Alert
+                var userInfo = TokenHelper.GetUserInfoFromRequest();
+                //Lấy phòng ban hiện tại và tất cả phòng ban cấp dưới DỰA VÀO tài khoản đang đăng nhập
+                var listDepartmentUser = DepartmentHelper.GetChildDepIdsByUser(userInfo.UserName);
+
+                // Lấy danh sách tất cả mẫu tin đã tạo trừ mẫu 1 và 2
+                var listZNSTemplate = znsBusiness.GetDSachMauZNS();
+
+                listCus = getCusFromFile(file);
+
+                if (listCus?.Any() == true)
+                {
+                    lst = (from d in _dbContext.Concus_Customer
+                           where listDepartmentUser.Contains(d.DepartmentId) && listCus.Contains(d.CustomerCode) && d.Status == 1 // Concus_ServicePoint status = true là chỉ lấy những khách hàng chưa thanh lý
+                            && string.IsNullOrEmpty(d.ZaloCustomerCare) && !string.IsNullOrEmpty(d.PhoneCustomerCare)
+                           select new Sms_AlertCutElecModel
+                           {
+                               CustomerName = d.Name,
+                               CustomerCode = d.CustomerCode,
+                               PhoneNumber = d.PhoneCustomerCare,
+                               CustomerId = d.CustomerId,
+                               ZaloNumber = d.ZaloCustomerCare
+                           }).ToList();
+                }
+                else if (stationId > 0)
+                {
+                    lst = (from a in _dbContext.Concus_ServicePoint
+                           join c in _dbContext.Concus_Contract on a.ContractId equals c.ContractId
+                           join d in _dbContext.Concus_Customer on c.CustomerId equals d.CustomerId
+                           where a.StationId == stationId && a.Status == true // Concus_ServicePoint status = true là chỉ lấy những khách hàng chưa thanh lý
+                           && listDepartmentUser.Contains(d.DepartmentId)
+                           && string.IsNullOrEmpty(d.ZaloCustomerCare) && !string.IsNullOrEmpty(d.PhoneCustomerCare)
+                           select new Sms_AlertCutElecModel
+                           {
+                               CustomerName = d.Name,
+                               CustomerCode = d.CustomerCode,
+                               PhoneNumber = d.PhoneCustomerCare,
+                               FigureBookId = a.FigureBookId,
+                               CustomerId = d.CustomerId,
+                               ZaloNumber = d.ZaloCustomerCare
+                           }).ToList();
+                }
+
+                var response = new {
+                    LstTemplate = listZNSTemplate,
+                    LstSms_AlertCutElec = lst
+                };
+
+                respone.Status = 1;
+                respone.Message = "OK";
+                respone.Data = response;
+                return createResponse();
+            }
+            catch (Exception ex)
+            {
+                respone.Status = 0;
+                respone.Message = $"Lỗi: {ex.Message.ToString()}";
+                respone.Data = null;
+                return createResponse();
+            }
+        }
+
+        private List<string> getCusFromFile(HttpPostedFileBase fileUpload)
+        {
+            List<string> listCus = new List<string>();
+            try
+            {
+                if (fileUpload != null && fileUpload.ContentLength > 0 && !string.IsNullOrEmpty(fileUpload.FileName))
+                {
+                    string fileName = fileUpload.FileName;
+                    string fileContentType = fileUpload.ContentType;
+                    byte[] fileBytes = new byte[fileUpload.ContentLength];
+                    var data = fileUpload.InputStream.Read(fileBytes, 0, Convert.ToInt32(fileUpload.ContentLength));
+                    using (var package = new ExcelPackage(fileUpload.InputStream))
+                    {
+                        var currentSheet = package.Workbook.Worksheets;
+                        var workSheet = currentSheet.First();
+                        var noOfRow = workSheet.Dimension.End.Row;
+                        for (int rowIterator = 2; rowIterator <= noOfRow; rowIterator++)
+                        {
+                            listCus.Add(workSheet.Cells[rowIterator, 1].Value.ToString());
+                        }
+                    }
+                }
+                return listCus;
+            }
+            catch (Exception ex)
+            {
+                listCus = new List<string>();
+                return listCus;
+            }
+        }
 
         [HttpPost]
         [Route("ZNSToBook_Alert_Send")]
