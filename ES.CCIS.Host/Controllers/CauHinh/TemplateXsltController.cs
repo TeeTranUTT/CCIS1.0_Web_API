@@ -1,8 +1,6 @@
 ﻿using CCIS_BusinessLogic;
 using CCIS_BusinessLogic.DTO.Hilo;
 using CCIS_DataAccess;
-using ES.CCIS.Host.Helpers;
-using ES.CCIS.Host.Models;
 using ES.CCIS.Host.Models.EnumMethods;
 using Newtonsoft.Json;
 using PagedList;
@@ -12,9 +10,10 @@ using System.ComponentModel;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
-using System.Web.Configuration;
 using System.Web.Http;
 using static CCIS_BusinessLogic.DefaultBusinessValue;
+using LanguageExt;
+using static LanguageExt.Prelude;
 
 namespace ES.CCIS.Host.Controllers.CauHinh
 {
@@ -23,6 +22,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
     public class TemplateXsltController : ApiBaseController
     {
         private readonly CCISContext _dbContext;
+        private readonly Business_Hilo business_Hilo = new Business_Hilo();
 
         public TemplateXsltController()
         {
@@ -38,7 +38,6 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                 var list = new List<TemplateXsltModel>();
                 if (departmentID != -1)
                 {
-                    var hilo = new Business_Hilo();
                     list = (from a in _dbContext.Category_ElectronicBillForm
                             join b in _dbContext.Category_Serial
                             on new { p1 = a.DepartmentId, p2 = a.BillType } equals new { p1 = b.DepartmentId, p2 = b.BillType }
@@ -67,16 +66,16 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                     {
                         throw new ArgumentException("Chưa cấu hình Parameter đăng nhập vào Hilo, vui lòng kiểm tra lại.");                       
                     }
-                    var hiloVersion = hilo.GetInfoRealseXsltByTaxCode(new HeadersRequest
+                    var hiloVersion = business_Hilo.GetInfoRealseXsltByTaxCode(new HeadersRequest
                     {
                         Username = loginInfo.ParameterValue.Split(';')[0],
                         Password = loginInfo.ParameterValue.Split(';')[1],
                         Taxcode = list.Select(i => i.TaxCode).FirstOrDefault()
                     });
-                    if (hiloVersion.status)
+                    hiloVersion.Match(Left: msg => { }, Right: json =>
                     {
-                        var result = JsonConvert.DeserializeObject<List<HiloVersionTemplate>>(hiloVersion.result);                        
-                    }                                                            
+                        var result = JsonConvert.DeserializeObject<List<HiloVersionTemplate>>(json);                        
+                    });
                 }               
 
                 respone.Status = 1;
@@ -116,7 +115,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                 {
                     throw new ArgumentException($"Không có mẫu tương ứng với ID là: {input.IdBillForm}");                    
                 }
-                var hilo = new Business_Hilo();
+
                 var requestTemplate = new CreateTemplateXsltRequest
                 {
                     InvPattern = billForm.SpecimenNumber,
@@ -135,16 +134,16 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                     Password = loginInfo.ParameterValue.Split(';')[1],
                     Taxcode = billForm.TaxCode
                 };
-                HiloResponseRaw result = null;
+                Either<string, Unit> result = Left("Init");
                 if (input.TypeOfAction == "C")
                 {
-                    result = hilo.CreateTemplateXsltToHilo(requestTemplate, headers);
+                    result = business_Hilo.CreateTemplateXsltToHilo(requestTemplate, headers);
                 }
                 else if (input.TypeOfAction == "U")
                 {
-                    result = hilo.EditTemplateXsltToHilo(requestTemplate, headers);
+                    result = business_Hilo.EditTemplateXsltToHilo(requestTemplate, headers);
                 }
-                if (result.status)
+                if (result.IsRight)
                 {
                     respone.Status = 1;
                     respone.Message = "Cập nhật thành công.";
@@ -153,7 +152,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                 }
                 else
                 {
-                    throw new ArgumentException($"Cập nhật mẫu không thành công {result.result}");                   
+                    throw new ArgumentException($"Cập nhật mẫu không thành công {result.FirstOrDefault().Left}");                   
                 }
             }
             catch (Exception ex)
@@ -171,7 +170,6 @@ namespace ES.CCIS.Host.Controllers.CauHinh
         {
             try
             {
-                var hilo = new Business_Hilo();
                 var bill = _dbContext.Category_ElectronicBillForm.Where(i => i.DepartmentId == input.DepartmentId && i.Bill_FormId == input.Bill_FormId).FirstOrDefault();
                 if (bill != null)
                 {
@@ -214,7 +212,6 @@ namespace ES.CCIS.Host.Controllers.CauHinh
         {
             try
             {
-                var hilo = new Business_Hilo();
                 var requestTemplate = new CreateTemplateXsltRequest
                 {
                     InvPattern = input.InvPattern,
@@ -233,8 +230,8 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                     Password = loginInfo.ParameterValue.Split(';')[1],
                     Taxcode = input.Taxcode
                 };
-                var result = hilo.EditTemplateXsltToHilo(requestTemplate, headers);
-                if (result.status)
+                var result = business_Hilo.EditTemplateXsltToHilo(requestTemplate, headers);
+                if (result.IsRight)
                 {
                     respone.Status = 1;
                     respone.Message = "Cập nhật thành công.";
@@ -243,7 +240,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                 }
                 else
                 {
-                    throw new ArgumentException($"Cập nhật mẫu không thành công {result.result}");                    
+                    throw new ArgumentException($"Cập nhật mẫu không thành công {result.FirstOrDefault().Left}");                    
                 }
             }
             catch (Exception ex)
@@ -261,7 +258,6 @@ namespace ES.CCIS.Host.Controllers.CauHinh
         {
             try
             {
-                var hilo = new Business_Hilo();
                 var loginInfo = _dbContext.Administrator_Parameter.FirstOrDefault(i => i.DepartmentId == input.DepartmentId && i.ParameterName == Administrator_Parameter_Common.HILO_AUTHENTICATION);
                 if (loginInfo == null)
                 {
@@ -274,7 +270,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
                     Taxcode = input.Request.taxcode
                 };
 
-                var response = hilo.GetInfoTemplate(input.Request.data, headers);
+                var response = business_Hilo.GetInfoTemplate(input.Request.data, headers);
 
                 respone.Status = 1;
                 respone.Message = "OK";
@@ -296,8 +292,7 @@ namespace ES.CCIS.Host.Controllers.CauHinh
         {
             try
             {
-                var hilo = new Business_Hilo();
-                var listByTaxCode = hilo.GetInfoRealseXsltByTaxCode(request);
+                var listByTaxCode = business_Hilo.GetInfoRealseXsltByTaxCode(request);
 
                 respone.Status = 1;
                 respone.Message = "OK";
